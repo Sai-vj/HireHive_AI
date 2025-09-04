@@ -1,0 +1,6 @@
+<h2>Best Matching Resumes for {{ job.title }}</h2>
+<ul>
+    {% for resume, score in matched_resumes %}
+        <li>{{ resume.name }} - {{ resume.email }} (Score: {{ score|floatformat:2 }})</li>
+    {% endfor %}
+</ul>
