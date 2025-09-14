@@ -1,0 +1,187 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Recruiter Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'recruiter_dashboard.css' %}">
+</head>
+<body>
+<div class="container py-3">
+
+  <div class="d-flex align-items-center mb-3">
+    <h1 class="me-auto">Recruiter Dashboard</h1>
+    <button id="refreshJobs" class="btn btn-outline-secondary me-2">Refresh Jobs</button>
+    <button id="addJobBtn" class="btn btn-primary">Add Job</button>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Bearer token</label>
+    <input id="tokenInput" class="form-control" placeholder="Paste token">
+    <button id="saveTokenBtn" class="btn btn-sm btn-primary mt-2">Save token</button>
+    <div id="tokenStatus" class="small-muted"></div>
+  </div>
+
+  <div class="row g-3">
+    <!-- left: job list -->
+    <div class="col-md-4">
+      <div class="card p-3">
+        <h5>Jobs</h5>
+        <div id="jobsList" class="list-group mt-2" style="max-height:70vh; overflow:auto;"></div>
+      </div>
+    </div>
+
+    <!-- right: job details & matches -->
+    <div class="col-md-8">
+      <div class="card p-3">
+        <div id="noJob" class="small-muted">Select a job to view matches and manage.</div>
+
+        <div id="jobDetails" style="display:none;">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <h4 id="selectedJobTitle"></h4>
+              <div id="jobMeta" class="small-muted"></div>
+            </div>
+            <div>
+              <button id="showMatchesBtn" class="btn btn-sm btn-outline-primary me-2">Show Matches</button>
+              <button id="showShortlistsBtn" class="btn btn-sm btn-outline-success me-2">Show Shortlists</button>
+              <button id="exportCsvBtn" class="btn btn-sm btn-outline-secondary me-2">Export CSV</button>
+              <!-- FIXED ID: use lower-case id that JS expects -->
+              <button id="showApplicationsBtn" class="btn btn-sm btn-outline-info">Show Applications</button>
+            </div>
+          </div>
+
+          <hr>
+
+          <div id="matchesSection" style="display:none;">
+            <h6>Matches</h6>
+            <div id="matchesList" style="max-height:58vh; overflow:auto;"></div>
+          </div>
+
+          <div id="shortlistSection" style="display:none;">
+            <h6>Shortlists</h6>
+            <div id="shortlistList" style="max-height:58vh; overflow:auto;"></div>
+          </div>
+
+          <!-- Applications Section (single applicationsList element) -->
+          <div id="applicationsSection" style="display:none; margin-top:12px;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="mb-0">Applications</h6>
+              <div>
+                <button id="refreshAppsBtn" class="btn btn-sm btn-outline-primary">Refresh</button>
+                <button id="exportAppsBtn" class="btn btn-sm btn-outline-secondary">Export CSV</button>
+              </div>
+            </div>
+            <div id="applicationsList" style="max-height:58vh; overflow:auto;">
+              <div class="small-muted">No applications loaded.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Job Modal (unchanged) -->
+  <div class="modal fade" id="addJobModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <form id="addJobForm">
+          <div class="modal-header">
+            <h5 class="modal-title">Add Job</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-2">
+              <label class="form-label">Title</label>
+              <input id="jobTitle" class="form-control" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Company</label>
+              <input id="jobCompany" class="form-control">
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Skills (comma separated)</label>
+              <input id="jobSkills" class="form-control" placeholder="Python, Django, REST">
+            </div>
+            <div class="row g-2">
+              <div class="col-md-6 mb-2">
+                <label class="form-label">Experience required (yrs)</label>
+                <input id="jobExperience" class="form-control" type="number" min="0" value="0">
+              </div>
+              <div class="col-md-6 mb-2">
+                <label class="form-label">Vacancies</label>
+                <input id="jobVacancies" class="form-control" type="number" min="1" value="1">
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Description</label>
+              <textarea id="jobDescription" class="form-control" rows="4"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Job</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <!-- Edit Application Modal -->
+<div class="modal fade" id="editAppModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form id="editAppForm" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Application</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editAppId">
+        <div class="mb-2">
+          <label class="form-label">Status</label>
+          <select id="editAppStatus" class="form-control">
+            <option value="pending">Pending</option>
+            <option value="shortlisted">Shortlisted</option>
+            <option value="interview">Interview</option>
+            <option value="rejected">Rejected</option>
+            <option value="hired">Hired</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Notes</label>
+          <textarea id="editAppNotes" class="form-control" rows="4" placeholder="Add notes for candidate / internal"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button id="editAppSubmit" type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+<!-- optional: static Job Detail Modal (script will reuse if present) -->
+<div class="modal fade" id="jobDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="jobDetailModalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="jobDetailModalBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button id="jobDetailApplyBtn" type="button" class="btn btn-primary">Apply</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <div id="toastContainer" style="position:fixed; right:20px; bottom:20px; z-index:4000;"></div>
+</div>
+
+<script src="{% static 'recruiter_dashboard.js' %}?v=1"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
