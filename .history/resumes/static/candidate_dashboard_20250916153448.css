@@ -1,0 +1,142 @@
+/* candidate_dashboard.css - polished look */
+
+/* container narrower */
+.container { max-width: 1100px; }
+
+/* heading */
+h1.display-6 { font-size: 2.2rem; font-weight: 700; }
+
+/* small muted */
+.small-muted { color: #6c757d; }
+
+/* cards */
+.card { border-radius: 12px; box-shadow: 0 6px 20px rgba(20,20,20,0.04); }
+
+/* forms */
+.form-control { border-radius: 8px; box-shadow: none; border: 1px solid #e6e6e6; padding: 0.55rem .75rem; }
+input[type="file"] { padding: .35rem; }
+
+/* buttons */
+.btn { border-radius: 8px; padding: .55rem .9rem; }
+.btn-primary, .btn-success { box-shadow: none; }
+.btn:hover { transform: translateY(-2px); transition: transform .12s ease; }
+
+/* toast container & small adjustments */
+#toastContainer .toast { margin-bottom: .5rem; min-width: 240px; }
+
+/* spinner overlay */
+#globalSpinner { position: fixed; left:0; right:0; top:0; bottom:0; display:none; align-items:center; justify-content:center; background: rgba(255,255,255,0.66); z-index: 2000; }
+#globalSpinner .spinner-border { width:3rem; height:3rem; }
+
+/* small helpers */
+.small-muted { font-size: .9rem; }
+
+/* resume card button spacing */
+#resumeList .card .btn { margin-left: .25rem; }
+
+/* responsive tweaks */
+@media (max-width: 768px) {
+  .container { padding-left: 18px; padding-right: 18px; }
+  .d-flex.gap-2 { flex-wrap: wrap; gap: .5rem; }
+  #saveTokenBtn { width: 100%; }
+  .btn { font-size: .95rem; }
+}
+
+/* Candidate dashboard — resume card layout (flexbox, responsive) */
+
+.resume-card {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.06);
+  /* ensure card doesn't shrink too narrow */
+  min-width: 0;
+}
+
+/* left content takes remaining space */
+.resume-card .resume-meta {
+  flex: 1 1 auto;
+  min-width: 0; /* important for text truncation inside flex */
+}
+
+/* right buttons group keeps its width */
+.resume-card .btn-group-right {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Button sizes & look */
+.resume-card .btn {
+  min-width: 68px;
+  padding: .38rem .6rem;
+  border-radius: 8px;
+  font-size: .92rem;
+}
+.resume-card .btn-outline-primary { border-color: #2b7be4; color: #2b7be4; }
+.resume-card .btn-outline-primary:hover { background:#eaf2ff; color:#0b57c8; }
+.resume-card .btn-outline-danger { border-color: #e85a6b; color: #e85a6b; }
+.resume-card .btn-outline-danger:hover { background:#ffeef0; color:#c83a4d; }
+
+/* mobile: stack meta above buttons */
+@media (max-width: 720px) {
+  .resume-card {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .resume-card .btn-group-right {
+    justify-content: flex-end;
+  }
+  .resume-card .btn {
+    min-width: 72px;
+    padding: .35rem .55rem;
+  }
+}
+
+/* small helper for text overflow */
+.resume-card .small-muted {
+  color: #6c757d;
+  line-height: 1.25;
+  display: block;
+  word-break: break-word;
+}
+/* ensure job-card is fully clickable and visible */
+#jobsList .job-card {
+  display: block;
+  cursor: pointer;
+  padding: 14px 12px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  transition: background .08s ease, transform .06s ease;
+}
+#jobsList .job-card:hover { background: #f8fbff; transform: translateY(-1px); }
+#jobsList .job-card.active { background: #e9f3ff; border-left: 4px solid #2b7be4; }
+#quiz-timer {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 15px;
+  background: #e0f2fe;
+  border: 1px solid #90cdf4;
+  font-size: 13px;
+  font-weight: bold;
+  color: #1e3a8a;
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  from { background-color: #e0f2fe; }
+  to   { background-color: #bfdbfe; }
+}
+
+#quiz-timer.warning {
+  color: #b91c1c;
+  background: #fee2e2;
+  border-color: #fecaca;
+}

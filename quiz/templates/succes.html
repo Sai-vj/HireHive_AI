@@ -1,0 +1,12 @@
+<h2>Resume Uploaded & Parsed Successfully ✅</h2>
+
+{% if skills %}
+    <h3>Extracted Skills:</h3>
+    <ul>
+        {% for skill in skills %}
+            <li>{{ skill }}</li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+<a href="/upload/">Upload Another</a>
