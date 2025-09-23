@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mx-auto p-6">
+  <h1 class="text-2xl font-bold mb-4">Questions for {{ interview.title }}</h1>
+
+  <!-- Table -->
+  <table class="table-auto w-full border-collapse border border-gray-300">
+    <thead>
+      <tr class="bg-gray-100">
+        <th class="border px-2 py-1">Question</th>
+        <th class="border px-2 py-1">Type</th>
+        <th class="border px-2 py-1">Difficulty</th>
+        <th class="border px-2 py-1">Status</th>
+        <th class="border px-2 py-1">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="question-table">
+      {% for q in questions %}
+      <tr id="q-{{ q.id }}">
+        <td class="border px-2 py-1">{{ q.question_text|truncatechars:50 }}</td>
+        <td class="border px-2 py-1">{{ q.get_question_type_display }}</td>
+        <td class="border px-2 py-1">{{ q.difficulty }}</td>
+        <td class="border px-2 py-1">
+          <span class="px-2 py-1 rounded text-white {% if q.status == 'published' %} bg-green-500 {% elif q.status == 'pending_review' %} bg-yellow-500 {% else %} bg-red-500 {% endif %}">
+            {{ q.status }}
+          </span>
+        </td>
+        <td class="border px-2 py-1 flex gap-2">
+          <!-- Approve Button -->
+          <button
+            class="bg-green-500 text-white px-2 py-1 rounded"
+            hx-post="{% url 'recruiter_review_bulk' interview.id %}"
+            hx-vals='{"approve":[{{ q.id }}]}'
+            hx-target="#q-{{ q.id }}"
+            hx-swap="outerHTML">
+            Approve
+          </button>
+
+          <!-- Reject Button -->
+          <button
+            class="bg-red-500 text-white px-2 py-1 rounded"
+            hx-post="{% url 'recruiter_review_bulk' interview.id %}"
+            hx-vals='{"reject":[{{ q.id }}]}'
+            hx-target="#q-{{ q.id }}"
+            hx-swap="outerHTML">
+            Reject
+          </button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" class="text-center py-4">No questions yet</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

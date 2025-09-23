@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}{{ news.title }} · ai_career_companion{% endblock %}
+{% block content %}
+<div class="container py-5">
+  <article>
+    <h1>{{ news.title }}</h1>
+    <p class="small text-muted">Published: {{ news.published_at|date:"d M Y H:i" }}</p>
+    {% if news.image %}
+      <img src="{{ news.image.url }}" alt="{{ news.title }}" class="img-fluid my-3">
+    {% endif %}
+    <div class="mt-3">{{ news.content|linebreaks }}</div>
+  </article>
+</div>
+{% endblock %}

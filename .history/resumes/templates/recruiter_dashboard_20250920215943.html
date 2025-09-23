@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Recruiter Dashboard</title>
+  
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding:20px; background:#f7f7f9; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial; }
+    .sidebar { width:320px; max-width:38vw; }
+    .main { flex:1; min-width:0; }
+    .job-card { cursor:pointer; padding:12px; border-radius:8px; border:1px solid #ececec; margin-bottom:8px; background:#fff; }
+    #jobDetails { display:none; }
+    .d-none { display:none!important; }
+    #toastContainer { position:fixed; right:18px; top:18px; z-index:12000; width:320px; max-width:calc(100% - 40px); }
+    .small-muted { color:#666; font-size:.95rem; }
+    .invite-overlay { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.45); z-index:99998; }
+    .invite-card { width:720px; max-width:96%; background:#fff; border-radius:10px; padding:16px; border:1px solid #eee; }
+  </style>
+</head>
+<body>
+  <div id="toastContainer"></div>
+
+  <div class="d-flex gap-3">
+    <!-- LEFT: jobs list -->
+    <div class="sidebar">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 style="margin:0">Jobs</h5>
+        <div>
+          <button id="refreshJobs" class="btn btn-sm btn-outline-secondary">Refresh</button>
+          <button id="addJobBtn" class="btn btn-sm btn-primary">Add</button>
+        </div>
+      </div>
+      <div id="jobsList" class="mb-3" style="max-height:70vh;overflow:auto;background:#fff;padding:8px;border-radius:8px;border:1px solid #eee"></div>
+
+      <div class="card p-2" style="background:#fff;border:1px solid #eee">
+        <label class="form-label mb-1">Token</label>
+        <div class="d-flex gap-2">
+          <input id="tokenInput" class="form-control form-control-sm" placeholder="Paste recruiter token" />
+          <button id="saveTokenBtn" class="btn btn-sm btn-success">Save</button>
+        </div>
+        <div id="tokenStatus" style="margin-top:6px;font-size:.9rem;color:#4b5563"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: job details / panels -->
+    <div class="main">
+      <div id="noJob" class="alert alert-secondary">Select a job to view details</div>
+
+      <div id="jobDetails" class="card p-3 mb-3" style="background:#fff;border:1px solid #eee">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h4 id="selectedJobTitle" style="margin:0">Job title</h4>
+            <div id="jobMeta" class="small-muted">meta</div>
+          </div>
+          <div>
+            <button id="reviewAttemptsBtn" class="btn btn-sm btn-outline-warning">Review Attempts</button>
+
+            <button id="showMatchesBtn" class="btn btn-sm btn-outline-primary">Matches</button>
+            <button id="showApplicationsBtn" class="btn btn-sm btn-outline-secondary">Applications</button>
+            <button id="showShortlistsBtn" class="btn btn-sm btn-outline-success">Shortlists</button>
+            <button id="exportCsvBtn" class="btn btn-sm btn-outline-dark">Export CSV</button>
+             <button id="generateQuestionsBtn" 
+              class="btn btn-sm btn-warning" 
+              data-job-id="">
+        Generate Questions (AI)
+      </button>
+          </div>
+        </div>
+
+        <hr/>
+        <!-- Shortlist Section (add inside #jobDetails) -->
+<div id="shortlistSection" class="mb-3" style="display:none">
+  <h6 style="margin:0 0 8px 0">Shortlists</h6>
+  <div id="shortlistList"></div>
+</div>
+
+
+        <!-- Matches Section (add inside #jobDetails) -->
+<div id="matchesSection" class="mb-3" style="display:none">
+  <h6 style="margin:0 0 8px 0">Matches</h6>
+  <div id="matchesList"></div>
+</div>
+<hr/>
+
+
+        <div id="applicationsSection" class="mb-3" style="display:none">
+          <h6 style="margin:0 0 8px 0">Applications</h6>
+          <div id="applicationsList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invite Modal -->
+  <div id="inviteModal" class="invite-overlay d-none" aria-hidden="true">
+    <div class="invite-card" role="dialog" aria-modal="true" aria-labelledby="inviteModalTitle">
+      <h5 id="inviteModalTitle" style="margin:0 0 8px 0">Invite candidate</h5>
+      <input type="hidden" id="invite_interview_id" />
+
+      <div class="mb-2">
+        <label class="form-label">Candidate ID</label>
+        <input id="invite_candidate_id" class="form-control" autocomplete="off" />
+      </div>
+
+      <div class="mb-2">
+        <label class="form-label">Schedule at</label>
+        <input id="invite_scheduled_at" type="datetime-local" class="form-control" />
+      </div>
+
+      <div class="mb-2">
+        <label class="form-label">Message</label>
+        <textarea id="invite_message" class="form-control" rows="3">Hi, you are invited for interview.</textarea>
+      </div>
+
+      <div class="text-end">
+        <button id="inviteCancelBtn" class="btn btn-sm btn-outline-secondary">Cancel</button>
+        <button id="inviteSendBtn" class="btn btn-sm btn-success">Send Invite</button>
+      </div>
+    </div>
+  </div>
+  
+
+
+  <!-- bootstrap -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+
+  <!-- main recruiter dashboard -->
+  <script type="module" src="/static/recruiter_dashboard.js"></script>
+</body>
+</html>

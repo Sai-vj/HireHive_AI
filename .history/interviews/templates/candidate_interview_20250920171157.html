@@ -1,0 +1,321 @@
+<!-- interviews/templates/candidate_interview.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Candidate Interview</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    #timer { font-size: 1.2rem; font-weight: bold; color: darkred; }
+    .question-card { margin-bottom: 15px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+  </style>
+</head>
+<body class="p-4">
+<div class="container">
+  <h3 id="iv-title">Interview</h3>
+  <div id="iv-info" class="mb-3">
+    <div><strong>Scheduled:</strong> <span id="iv-scheduled">—</span></div>
+    <div><strong>Duration:</strong> <span id="iv-duration">—</span> mins</div>
+    <div id="timer" class="mt-2"></div>
+  </div>
+
+  <div id="iv-desc" class="mb-3"></div>
+
+  <div id="controls">
+    <button id="startAttemptBtn" class="btn btn-primary">Start Attempt</button>
+    <a id="backToDash" class="btn btn-outline-secondary" href="/api/resumes/dashboard/candidate/">Back</a>
+  </div>
+
+  <form id="questionsForm" class="mt-3" style="display:none;">
+    <div id="questionsContainer"></div>
+    <button type="submit" class="btn btn-success">Submit Answers</button>
+  </form>
+
+  <div id="message" class="mt-3"></div>
+</div>
+
+<script>
+const interviewId = "{{ interview_id }}";  // Django context
+let attemptId = null;
+let timerInterval = null;
+
+// countdown
+function startTimer(minutes) {
+  let remaining = minutes * 60;
+  const el = document.getElementById("timer");
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    el.textContent = `Time left: ${m}:${s.toString().padStart(2,'0')}`;
+    if (remaining <= 0) {
+      clearInterval(timerInterval);
+      submitAnswers(); // auto submit
+    }
+    remaining--;
+  }, 1000);
+}
+
+// start attempt
+document.getElementById("startAttemptBtn").addEventListener("click", async () => {
+  const res = await fetch(`/api/interviews/candidate/${interviewId}/start/`, {method:"POST"});
+  if (!res.ok) {
+    document.getElementById("message").textContent = "Failed to start attempt.";
+    return;
+  }
+  const data = await res.json();
+  attemptId = data.id || data.attempt_id;
+  document.getElementById("startAttemptBtn").style.display = "none";
+  loadQuestions(data.questions || []);
+  startTimer(data.interview?.duration_minutes || 30);
+});
+
+// render questions
+function loadQuestions(questions) {
+  const container = document.getElementById("questionsContainer");
+  container.innerHTML = "";
+  if (!questions.length) {
+    container.innerHTML = "<div class='alert alert-warning'>No questions found.</div>";
+    return;
+  }
+  questions.forEach((q, idx) => {
+    const card = document.createElement("div");
+    card.className = "question-card";
+    let html = `<p><strong>Q${idx+1}:</strong> ${q.question_text}</p>`;
+    if (q.question_type === "mcq" && q.choices) {
+      for (const [opt, txt] of Object.entries(q.choices)) {
+        html += `
+          <div class="form-check">
+            <input type="radio" class="form-check-input" name="q_${q.id}" value="${opt}">
+            <label class="form-check-label">${opt}) ${txt}</label>
+          </div>`;
+      }
+    } else {
+      html += `<textarea class="form-control" name="q_${q.id}" rows="4"></textarea>`;
+    }
+    card.innerHTML = html;
+    container.appendChild(card);
+  });
+  document.getElementById("questionsForm").style.display = "block";
+}
+
+// submit
+document.getElementById("questionsForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  submitAnswers();
+});
+// Candidate interview page - Start Attempt handler
+// Paste this in the script that runs on candidate_interview.html
+
+function getCookie(name) {
+  const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return v ? v.pop() : '';
+}
+
+async function startAttempt(interviewId, inviteId) {
+  const errEl = document.getElementById('start-error') || (function(){
+    const d = document.createElement('div'); d.id='start-error'; d.style.marginTop='12px'; document.querySelector('main')?.appendChild(d); return d;
+  })();
+
+  try {
+    // --- get token: try localStorage (JWT) first, fallback to session (CSRF) ---
+    const accessToken = localStorage.getItem('access_token'); // if you store JWT here
+    const headers = { 'Content-Type': 'application/json' };
+
+    if (accessToken) {
+      headers['Authorization'] = 'Bearer ' + accessToken;
+    } else {
+      // session auth -> include csrf token
+      const csrftoken = getCookie('csrftoken');
+      if (csrftoken) headers['X-CSRFToken'] = csrftoken;
+    }
+
+    const resp = await fetch(`/api/interviews/andidate/${interviewId}/start/`, { // <-- check URL spelling, use correct path
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ invite: inviteId })
+    });
+
+    // Always await json BEFORE using it
+    const data = await resp.json().catch(()=>({})); // if non-json, fallback
+
+    if (!resp.ok) {
+      // show backend message if exists, else generic
+      const msg = data.detail || data.error || JSON.stringify(data) || `Status ${resp.status}`;
+      throw new Error(msg);
+    }
+
+    // success -> redirect to attempt page (or render questions)
+    // adjust route as your app expects
+    if (data.attempt_id) {
+      window.location.href = `/interviews/page/candidate/${interviewId}/attempt/${data.attempt_id}/`;
+    } else {
+      // If API returns attempt URL
+      if (data.attempt_url) window.location.href = data.attempt_url;
+      else window.location.href = window.location.href; // fallback reload
+    }
+  } catch (err) {
+    console.error('Start attempt error:', err);
+    errEl.textContent = 'Failed to start attempt: ' + err.message;
+  }
+}
+
+// attach click
+document.querySelector('#start-attempt-btn')?.addEventListener('click', function(e){
+  const interviewId = this.dataset.interviewId; // set data-interview-id in HTML
+  const inviteId = new URLSearchParams(window.location.search).get('invite');
+  startAttempt(interviewId, inviteId);
+});
+
+
+async function submitAnswers() {
+  if (!attemptId) return;
+  const form = document.getElementById("questionsForm");
+  const formData = new FormData(form);
+  const answers = {};
+  for (const [k,v] of formData.entries()) {
+    const qid = k.replace("q_","");
+    answers[qid] = v;
+  }
+  const res = await fetch(`/api/interviews/candidate/attempts/${attemptId}/submit/`, {
+    method:"POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({answers})
+  });
+  if (res.ok) {
+    const data = await res.json();
+    document.getElementById("message").innerHTML = `<div class="alert alert-success">Submitted! Score: ${data.score} | Passed: ${data.passed}</div>`;
+    document.getElementById("questionsForm").style.display = "none";
+    clearInterval(timerInterval);
+  } else {
+    document.getElementById("message").innerHTML = `<div class="alert alert-danger">Submit failed</div>`;
+  }
+}
+// ---------- Auto-save (client) ----------
+let autosaveIntervalId = null;
+const AUTOSAVE_PERIOD_MS = 10000; // 10s
+
+function collectAnswers() {
+  const form = document.getElementById('questionsForm');
+  const fd = new FormData(form);
+  const answers = {};
+  for (const [k, v] of fd.entries()) {
+    const qid = k.replace(/^q_/, '');
+    answers[qid] = v;
+  }
+  return answers;
+}
+
+async function autosaveAttempt() {
+  if (!attemptId) return;
+  const answers = collectAnswers();
+  // save to localStorage for crash recovery
+  localStorage.setItem(`attempt_${attemptId}_draft`, JSON.stringify({ answers, when: new Date().toISOString() }));
+
+  // send to server (non-blocking)
+  try {
+    await fetch(`/api/interviews/candidate/attempts/${attemptId}/autosave/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers, draft: true })
+    });
+    // optionally show tiny indicator
+    // console.debug('autosaved', new Date().toISOString());
+  } catch (e) {
+    console.warn('autosave failed', e);
+  }
+}
+
+// start autosave after questions loaded
+function startAutoSave() {
+  if (autosaveIntervalId) clearInterval(autosaveIntervalId);
+  autosaveIntervalId = setInterval(autosaveAttempt, AUTOSAVE_PERIOD_MS);
+
+  // also save on change events
+  document.getElementById('questionsContainer').addEventListener('input', () => {
+    // debounce quick bursts
+    if (window._lastInputSaveTimer) clearTimeout(window._lastInputSaveTimer);
+    window._lastInputSaveTimer = setTimeout(autosaveAttempt, 1000);
+  });
+
+  // save on unload
+  window.addEventListener('beforeunload', () => {
+    // sync localStorage
+    const answers = collectAnswers();
+    localStorage.setItem(`attempt_${attemptId}_draft`, JSON.stringify({ answers, when: new Date().toISOString() }));
+    // try synchronous navigator.sendBeacon to save to server
+    try {
+      const url = `/api/interviews/candidate/attempts/${attemptId}/autosave/`;
+      const payload = JSON.stringify({ answers, draft: true, unload: true });
+      if (navigator.sendBeacon) {
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+      }
+    } catch (e) { /* ignore */ }
+  });
+}
+
+// After loading questions:
+loadQuestions(data.questions || []);
+startAutoSave();
+
+// ---------- Anti-cheat: event logging ----------
+const eventLog = []; // short ring buffer
+function logEvent(type, info={}) {
+  const entry = { ts: new Date().toISOString(), type, info };
+  eventLog.push(entry);
+  if (eventLog.length > 200) eventLog.shift();
+  // also send to server in batches occasionally
+  if (eventLog.length % 5 === 0) sendEventLogs();
+}
+
+async function sendEventLogs() {
+  if (!attemptId || !eventLog.length) return;
+  try {
+    await fetch(`/api/interviews/candidate/attempts/${attemptId}/events/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ events: eventLog.splice(0) })
+    });
+  } catch (e) { console.warn('sendEventLogs failed', e); }
+}
+
+// visibility / focus
+document.addEventListener('visibilitychange', () => {
+  logEvent('visibilitychange', { state: document.visibilityState });
+  if (document.visibilityState !== 'visible') {
+    warnUser('Please do not switch tabs or minimize the browser during the attempt.');
+  }
+});
+window.addEventListener('blur', () => { logEvent('blur'); });
+window.addEventListener('focus', () => { logEvent('focus'); });
+
+// copy/paste
+document.addEventListener('copy', () => { logEvent('copy'); warnUser('Copy detected — this will be logged.'); });
+document.addEventListener('paste', () => { logEvent('paste'); warnUser('Paste detected — this will be logged.'); });
+
+// multiple-tabs detection via BroadcastChannel
+let bc;
+try {
+  bc = new BroadcastChannel(`attempt_${attemptId}_channel`);
+  bc.onmessage = (ev) => {
+    if (ev.data === 'hello') {
+      logEvent('other_tab_open', {});
+      warnUser('Another tab detected for this attempt.');
+    }
+  };
+  // announce presence
+  bc.postMessage('hello');
+} catch (e) { /* fallback omitted */ }
+
+function warnUser(msg) {
+  const m = document.getElementById('message');
+  if (!m) return;
+  m.innerHTML = `<div class="alert alert-warning">${msg}</div>`;
+  // optionally show in-page toast
+}
+
+
+</script>
+</body>
+</html>

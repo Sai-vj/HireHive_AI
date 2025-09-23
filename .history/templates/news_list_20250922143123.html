@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}News · ai_career_companion{% endblock %}
+{% block content %}
+<div class="container py-5">
+  <h2>Latest News</h2>
+  <div class="row g-3">
+    {% for n in news_list %}
+      <div class="col-md-4">
+        <div class="card h-100">
+          {% if n.image %}
+            <img src="{{ n.image.url }}" class="card-img-top" alt="{{ n.title }}">
+          {% endif %}
+          <div class="card-body">
+            <h5 class="card-title"><a href="{{ n.get_absolute_url }}">{{ n.title }}</a></h5>
+            <p class="small text-muted">{{ n.published_at|date:"d M Y" }}</p>
+            <p class="card-text">{{ n.summary|truncatechars:120 }}</p>
+            <a href="{{ n.get_absolute_url }}" class="stretched-link">Read</a>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <p class="text-muted">No news yet.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

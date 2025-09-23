@@ -1,0 +1,338 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Candidate Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'candidate_dashboard.css' %}">
+  <style>
+    /* quick safety so page doesn't flash huge spinner if script hasn't run yet */
+    #globalSpinner { display:none; }
+  </style>
+</head>
+<body>
+<div class="container my-3">
+
+  <!-- Spinner overlay -->
+  <div id="globalSpinner">
+    <div>
+      <div class="spinner-border text-primary" role="status"></div>
+      <div id="globalSpinnerText">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Page title -->
+  <h1 class="mb-4 display-6">Candidate Dashboard</h1>
+
+  <!-- Token input -->
+  <div class="mb-4">
+    <label class="form-label">Bearer token (paste your JWT access token)</label>
+    <input id="tokenInput" class="form-control" placeholder="Paste token here">
+    <div class="form-text">
+      Token stored locally (demo only). 
+      <span id="tokenStatus" class="small-muted"></span>
+    </div>
+    <button id="saveTokenBtn" class="btn btn-primary mt-2">Save token</button>
+  </div>
+  
+
+  <!-- Layout row -->
+  <div class="row g-4">
+    <!-- Upload resume section -->
+    <div class="col-md-4">
+      <div class="card p-3">
+        <h5 class="mb-3">Upload Resume</h5>
+        <input type="file" id="resumeFile" class="form-control mb-2" accept=".pdf,.doc,.docx">
+        <button id="uploadBtn" class="btn btn-success w-100">Upload</button>
+        <hr>
+        <h6>Your Resumes</h6>
+        <div id="resumeList" class="small-muted">No resumes uploaded yet.</div>
+      </div>
+    </div>
+
+    <!-- Jobs section -->
+    <div class="col-md-8">
+      <div class="card p-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="mb-0">Jobs</h5>
+          <div class="d-flex gap-2">
+            <button id="refreshJobs" class="btn btn-outline-secondary btn-sm">Refresh Jobs</button>
+            <button id="showMatchesBtn" class="btn btn-outline-primary btn-sm" style="display:none;">Show Matches</button>
+            <button id="showShortlistsBtn" class="btn btn-outline-secondary btn-sm" style="display:none;">Show Shortlists</button>
+          </div>
+        </div>
+
+    <div id="jobsList" class="list-group mb-3">
+  {% for job in jobs %}
+  <div class="job-card border p-2 mb-2" data-job-id="{{ job.id }}">
+    <h6>{{ job.title }}</h6>
+
+    <!-- Quiz Button -->
+    <button class="btn btn-outline take-quiz-btn" data-job-id="{{ job.id }}">
+      Take Quiz
+    </button>
+    
+    <button class="btn btn-outline-secondary btn-sm"
+        onclick="openAttemptHistoryModal('{{job.id}}')" data-job-id="{{job.id}}">View Attempts
+      </button>
+
+    <!-- Apply Button -->
+    <button id="apply-btn-{{ job.id }}" 
+            class="btn btn-primary apply-btn disabled"
+            data-job-id="{{ job.id }}" disabled>
+      Apply
+    </button>
+
+    <!-- Retake Button -->
+    <button class="btn btn-secondary retake-btn" 
+            data-job-id="{{ job.id }}" style="display:none;">
+      Retake
+    </button>
+
+    <!-- Quiz Status -->
+    <span id="quiz-status-{{ job.id }}">Not attempted</span>
+  <div class="attempt-info small mt-2"></div>
+
+    <!-- Attempts history -->
+    <div id="attempt-history-{{ job.id }}" class="attempt-history small mt-2"></div>
+  </div>
+  {% endfor %}
+</div>
+
+        <!-- Matches -->
+        <div id="matchesSection" style="display:none;">
+          <h6 class="mb-2" id="selectedJobTitle">Job Matches</h6>
+          <div id="matchesList"></div>
+        </div>
+
+        <!-- Shortlist area -->
+        <div id="shortlistSection" style="display:none;margin-top:.75rem;">
+          <h6 class="mb-2">Shortlists</h6>
+          <div id="shortlistList"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toastContainer" style="position:fixed; right:20px; bottom:20px; z-index:4000;"></div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">Are you sure?</div>
+      <div class="modal-footer">
+        <button type="button" id="confirmCancelBtn" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="confirmOkBtn" class="btn btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Candidate: My Applications panel -->
+<div class="card p-3 mt-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h5 class="mb-0">My Applications</h5>
+    <div>
+      <button id="refreshMyAppsBtn" class="btn btn-sm btn-outline-primary">Refresh</button>
+      <button id="exportMyAppsBtn" class="btn btn-sm btn-outline-secondary">Export CSV</button>
+    </div>
+  </div>
+  <div id="myApplicationsList" style="max-height:50vh; overflow:auto;">
+    <div class="small-muted">No applications loaded.</div>
+  </div>
+</div>
+
+<!-- Apply modal -->
+<div class="modal fade" id="applyModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <form id="applyForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Apply to job</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label">Select resume</label>
+            <select id="applyResumeSelect" class="form-control">
+              <option value="">-- choose resume --</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Message (optional)</label>
+            <textarea id="applyMessage" class="form-control" rows="3" placeholder="Quick note to recruiter (optional)"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="applySubmitBtn" type="submit" class="btn btn-primary">Apply</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<!-- Attempt History Modal -->
+<!-- Attempt history modal (keep once in page) -->
+<div id="attempts-modal" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:99999;">
+  <div style="background:#fff;padding:14px;border-radius:8px;max-width:900px;width:94%;max-height:80vh;overflow:auto;position:relative;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h4 id="attempts-modal-title" style="margin:0">Attempt history</h4>
+      <div>
+        <button id="attempts-modal-close" class="btn btn-sm btn-outline-secondary">Close</button>
+      </div>
+    </div>
+
+    <div id="attempts-loading" style="margin-top:10px;color:#666">Loading…</div>
+    <div id="attempts-list" style="margin-top:12px"></div>
+
+    <div style="text-align:right;margin-top:12px;">
+      <button id="attempts-modal-ok" class="btn btn-primary">OK</button>
+    </div>
+  </div>
+</div>
+<script>
+/* ---------- ATTEMPT UI injector (paste near end of page) ---------- */
+(function(){
+  // safe helper
+  function safeJson(text) {
+    try { return text ? JSON.parse(text) : null; } catch(e){ return null; }
+  }
+
+  function escapeHtml(s){ if(s===null||s===undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ensure job-card container exists and show attempt info
+  function ensureAttemptContainer(jobCardEl) {
+    if (!jobCardEl) return null;
+    let wrap = jobCardEl.querySelector('.attempt-info');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.className = 'attempt-info';
+      wrap.style = 'margin-top:8px;font-size:.9rem;color:#444';
+      jobCardEl.appendChild(wrap);
+    }
+    return wrap;
+  }
+
+  function renderJobAttemptSummaryFromAttempt(jobCardEl, attempt) {
+    const wrap = ensureAttemptContainer(jobCardEl);
+    if (!wrap) return;
+    const score = attempt.score ?? 0;
+    const total = attempt.total ?? attempt.total_questions ?? 0;
+    const passed = !!attempt.passed;
+    const when = attempt.finished_at || attempt.started_at || null;
+    const whenText = when ? new Date(when).toLocaleString() : '';
+    const attemptId = attempt.attempt_id || attempt.id || '';
+    wrap.innerHTML = `Attempt ${attemptId}: ${escapeHtml(score)}/${escapeHtml(total)} — <strong style="color:${passed ? 'green':'crimson'}">${passed ? 'Passed' : 'Failed'}</strong> <small style="color:#666">(${escapeHtml(whenText)})</small>`;
+  }
+
+  // loads attempts from API and renders most recent attempt on job card
+  async function loadAttemptHistoryAndRender(jobId, fallbackButton) {
+    if (!jobId) return;
+    const token = localStorage.getItem('token') || (document.getElementById('tokenInput') && document.getElementById('tokenInput').value.trim());
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    try {
+      const url = `/api/quiz/${jobId}/attempts/`;
+      console.debug('Loading attempts for', jobId, 'from', url);
+      const r = await fetch(url, { method: 'GET', headers });
+      if (!r.ok) {
+        console.warn('attempts fetch failed', jobId, r.status);
+        const jobCardF = findJobCardElement(jobId, fallbackButton);
+        const wr = ensureAttemptContainer(jobCardF);
+        if (wr) {
+          if (r.status === 403) wr.innerText = 'Max attempts reached';
+          else if (r.status === 401) wr.innerText = 'Login required';
+          else wr.innerText = `Attempts: (error ${r.status})`;
+        }
+        return null;
+      }
+      const data = await r.json().catch(()=>null);
+      const arr = Array.isArray(data) ? data : (data && (data.results||data.attempts) ? (data.results || data.attempts) : []);
+      // render most recent attempt if any
+      const jobCard = findJobCardElement(jobId, fallbackButton);
+      if (!jobCard) {
+        console.warn('job card not found for', jobId);
+        return arr;
+      }
+      if (!arr || arr.length === 0) {
+        const wr = ensureAttemptContainer(jobCard);
+        if (wr) wr.innerText = 'Not attempted';
+        return [];
+      }
+      // sort by finished/started time desc
+      const sorted = arr.slice().sort((a,b) => {
+        const ta = new Date(a.finished_at || a.started_at || 0).getTime();
+        const tb = new Date(b.finished_at || b.started_at || 0).getTime();
+        return tb - ta;
+      });
+      renderJobAttemptSummaryFromAttempt(jobCard, sorted[0]);
+      return arr;
+    } catch (e) {
+      console.error('loadAttemptHistoryAndRender error', e);
+      const jobCard = findJobCardElement(jobId, fallbackButton);
+      const wr = ensureAttemptContainer(jobCard);
+      if (wr) wr.innerText = 'Error loading attempts';
+      return null;
+    }
+  }
+
+  function findJobCardElement(jobId, fallbackButton) {
+    let el = document.querySelector(`.job-card[data-job-id="${jobId}"]`);
+    if (el) return el;
+    el = document.querySelector(`[data-job-id="${jobId}"]`);
+    if (el) return el;
+    if (fallbackButton && fallbackButton.closest) {
+      const p = fallbackButton.closest('.job-card');
+      if (p) return p;
+    }
+    return null;
+  }
+
+  // run at page load: call loadAttemptHistory for every job-card found
+  function initAttemptRenderingOnPage() {
+    document.querySelectorAll('.job-card').forEach(card => {
+      const jid = Number(card.dataset.jobId || card.getAttribute('data-job-id'));
+      if (jid) {
+        // small delay to avoid overwhelming server on large pages
+        setTimeout(()=> loadAttemptHistoryAndRender(jid), 100);
+      }
+    });
+  }
+
+  // Public helper to refresh single card after submit
+  window.refreshJobAttempt = function(jobId) {
+    return loadAttemptHistoryAndRender(jobId);
+  };
+
+  // init on DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAttemptRenderingOnPage);
+  } else {
+    initAttemptRenderingOnPage();
+  }
+
+  // Also auto-refresh when quiz modal successfully submits (if your onQuizSubmit/handleQuizSubmitResponse calls this)
+  // You can call window.refreshJobAttempt(jobId) from your submit handler.
+
+  console.log('Attempt renderer installed.');
+})();
+</script>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Candidate dashboard JS -->
+<script type="module" src="{% static 'candidate_dashboard.js' %}?v=1"></script>
+</body>
+</html>

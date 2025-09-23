@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Recruiter Dashboard{% endblock %}
+
+{% block content %}
+<div id="toastContainer"></div>
+
+<div class="d-flex gap-3">
+  <!-- LEFT: jobs list -->
+  <div class="sidebar">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5 style="margin:0">Jobs</h5>
+      <div>
+        <button id="refreshJobs" class="btn btn-sm btn-outline-secondary">Refresh</button>
+        <button id="addJobBtn" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addJobModal">Add</button>
+      </div>
+    </div>
+
+    <div id="jobsList" class="mb-3" style="max-height:70vh;overflow:auto;background:#fff;padding:8px;border-radius:8px;border:1px solid #eee"></div>
+
+    <div class="card p-2" style="background:#fff;border:1px solid #eee">
+      <label class="form-label mb-1">Token</label>
+      <div class="d-flex gap-2">
+        <input id="tokenInput" class="form-control form-control-sm" placeholder="Paste recruiter token" />
+        <button id="saveTokenBtn" class="btn btn-sm btn-success">Save</button>
+      </div>
+      <div id="tokenStatus" style="margin-top:6px;font-size:.9rem;color:#4b5563"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: job details / panels -->
+  <div class="main">
+    <div id="noJob" class="alert alert-secondary">Select a job to view details</div>
+
+    <div id="jobDetails" class="card p-3 mb-3" style="background:#fff;border:1px solid #eee; display:none;">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <h4 id="selectedJobTitle" style="margin:0">Job title</h4>
+          <div id="jobMeta" class="small-muted">meta</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <a class="btn btn-sm btn-primary" id="btnJobsOverview" href="{% url 'resumes:job-list' %}">Jobs</a>
+          <a class="btn btn-sm btn-outline-secondary" id="btnApplications" href="{% url 'resumes:recruiter-applications' %}">Applications</a>
+          <a class="btn btn-sm btn-outline-success" id="btnShortlists" href="{% url 'resumes:my-shortlists' %}">Shortlists</a>
+          <button id="reviewAttemptsBtn" class="btn btn-sm btn-outline-warning">Review Attempts</button>
+          <button id="showMatchesBtn" class="btn btn-sm btn-outline-primary">Matches</button>
+          <button id="exportCsvBtn" class="btn btn-sm btn-outline-dark">Export CSV</button>
+          <button id="generateQuestionsBtn" class="btn btn-sm btn-warning" data-job-id="">Generate Questions (AI)</button>
+        </div>
+      </div>
+
+      <hr/>
+      <div id="shortlistSection" class="mb-3 d-none">
+        <h6 style="margin:0 0 8px 0">Shortlists</h6>
+        <div id="shortlistList"></div>
+      </div>
+
+      <div id="matchesSection" class="mb-3 d-none">
+        <h6 style="margin:0 0 8px 0">Matches</h6>
+        <div id="matchesList"></div>
+      </div>
+
+      <hr/>
+
+      <div id="applicationsSection" class="mb-3 d-none">
+        <h6 style="margin:0 0 8px 0">Applications</h6>
+        <div id="applicationsList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Job Modal (Bootstrap markup kept) -->
+<div class="modal fade" id="addJobModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form id="addJobForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Create Job</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- fields -->
+          <div class="mb-2">
+            <label class="form-label">Title</label>
+            <input id="jobTitle" name="title" class="form-control" required />
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Company</label>
+            <input id="jobCompany" name="company" class="form-control" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Skills</label>
+            <input id="jobSkills" name="skills" class="form-control" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Experience Required</label>
+            <input id="jobExperience" name="experience" type="number" min="0" class="form-control" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Vacancies</label>
+            <input id="jobVacancies" name="vacancies" type="number" min="1" class="form-control" value="1" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Description</label>
+            <textarea id="jobDescription" name="description" rows="4" class="form-control"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Create</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Invite Modal (kept) -->
+<div id="inviteModal" class="invite-overlay d-none" aria-hidden="true">
+  <div class="invite-card" role="dialog" aria-modal="true" aria-labelledby="inviteModalTitle">
+    <h5 id="inviteModalTitle" style="margin:0 0 8px 0">Invite candidate</h5>
+    <input type="hidden" id="invite_interview_id" />
+
+    <div class="mb-2">
+      <label class="form-label">Candidate ID</label>
+      <input id="invite_candidate_id" class="form-control" autocomplete="off" />
+    </div>
+
+    <div class="mb-2">
+      <label class="form-label">Schedule at</label>
+      <input id="invite_scheduled_at" type="datetime-local" class="form-control" />
+    </div>
+
+    <div class="mb-2">
+      <label class="form-label">Message</label>
+      <textarea id="invite_message" class="form-control" rows="3">Hi, you are invited for interview.</textarea>
+    </div>
+
+    <div class="text-end">
+      <button id="inviteCancelBtn" class="btn btn-sm btn-outline-secondary">Cancel</button>
+      <button id="inviteSendBtn" class="btn btn-sm btn-success">Send Invite</button>
+    </div>
+  </div>
+</div>
+
+<!-- include script module via static -->
+<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+<script type="module" src="{% static 'recruiter_dashboard.js' %}"></script>
+{% endblock %}

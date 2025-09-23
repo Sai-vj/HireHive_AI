@@ -1,0 +1,1051 @@
+// candidate_dashboard.js -- Candidate-only dashboard (clean, defensive)
+// Updated: includes invite scheduling/fragment fixes and better start UX.
+
+(function () {
+  // small helpers & config
+  const API = {
+    JOBS: '/api/resumes/jobs/',
+    JOB_DETAIL: (id) => `/api/resumes/jobs/${id}/`,
+    MY_RESUMES: '/api/resumes/my-resumes/',
+    UPLOAD: '/api/resumes/upload/',
+    DELETE_RESUME: (id) => `/api/resumes/my-resumes/${id}/`,
+    APPLY: '/api/resumes/apply/',
+    APPLICATIONS: '/api/resumes/applications/',
+    MY_APPLICATIONS: '/api/resumes/my-applications/',
+    SHORTLIST: '/api/resumes/shortlist/',
+    QUIZ_GET: (jobId) => `/api/quiz/${jobId}/`,
+    QUIZ_ATTEMPTS_BY_JOB: (jobId) => `/api/quiz/${jobId}/attempts/`,
+    QUIZ_ATTEMPT_SUBMIT: '/api/quiz/attempt/',
+    INVITES: '/api/interviews/candidate/invites/',
+    INVITE_RESPOND: (inviteId) => `/api/interviews/candidate/invites/${inviteId}/respond/`,
+    START_INTERVIEW: (interviewId) => `/api/interviews/candidate/${interviewId}/start/`,
+  };
+
+  // ----------------- safe wrappers -----------------
+  const hasFetchWithAuth = typeof window.fetchWithAuth === 'function';
+  const hasApiFetch = typeof window.apiFetch === 'function' || typeof window.apiFetchAsJson === 'function';
+
+  async function _fetchWithAuth(url, options = {}) {
+    if (hasFetchWithAuth) return window.fetchWithAuth(url, options);
+    const headers = Object.assign({}, options.headers || {});
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token') || '';
+    if (token && !headers['Authorization']) headers['Authorization'] = 'Bearer ' + token;
+    const opts = Object.assign({}, options, { headers, credentials: options.credentials || 'same-origin' });
+    return fetch(url, opts);
+  }
+
+  async function _apiFetch(url, opts = {}) {
+    try {
+      if (hasApiFetch) {
+        if (typeof window.apiFetch === 'function') return await window.apiFetch(url, opts);
+        if (typeof window.apiFetchAsJson === 'function') return await window.apiFetchAsJson(url, opts);
+      }
+    } catch (e) {
+      console.debug('user apiFetch failed, falling back', e);
+    }
+    try {
+      const r = await _fetchWithAuth(url, opts);
+      const text = await r.text().catch(() => null);
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+      return { ok: r.ok, status: r.status, data };
+    } catch (e) {
+      return { ok: false, status: 0, error: e.message || String(e) };
+    }
+  }
+
+  // ----------------- UI helpers -----------------
+  function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"'`]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#x60;' })[m]);
+  }
+  function showToast(msg, type = 'info', timeout = 3500) {
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toastContainer';
+      container.style.position = 'fixed';
+      container.style.right = '18px';
+      container.style.bottom = '18px';
+      container.style.zIndex = 99999;
+      document.body.appendChild(container);
+    }
+    const el = document.createElement('div');
+    el.style.marginTop = '8px';
+    el.style.padding = '8px 12px';
+    el.style.borderRadius = '8px';
+    el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+    el.style.background = type === 'success' ? '#d1e7dd' : type === 'error' ? '#f8d7da' : '#fff3cd';
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), timeout);
+  }
+  function showSpinner(on, text = '') {
+    let sp = document.getElementById('globalSpinner');
+    if (!sp) {
+      sp = document.createElement('div');
+      sp.id = 'globalSpinner';
+      sp.style = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.6);z-index:99998;';
+      sp.innerHTML = `<div style="text-align:center;"><div class="spinner-border" role="status" style="width:2.5rem;height:2.5rem"></div><div id="globalSpinnerText" style="margin-top:8px"></div></div>`;
+      document.body.appendChild(sp);
+    }
+    sp.style.display = on ? 'flex' : 'none';
+    const t = document.getElementById('globalSpinnerText');
+    if (t) t.innerText = text || '';
+  }
+
+  // ---------- invite time helpers ----------
+  function parseDateTime(val) {
+    if (!val) return null;
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d;
+    const d2 = new Date(String(val).replace(' ', 'T'));
+    return isNaN(d2.getTime()) ? null : d2;
+  }
+  function isScheduledNowOrPast(scheduledAt) {
+    const d = parseDateTime(scheduledAt);
+    if (!d) return false;
+    const now = new Date();
+    return now.getTime() >= d.getTime();
+  }
+  function formatLocalDateTime(val) {
+    const d = parseDateTime(val);
+    if (!d) return String(val || '—');
+    return d.toLocaleString();
+  }
+
+  // ----------------- State -----------------
+  let resumes = [];
+  let jobs = [];
+  let quizTimerHandle = null;
+  let quizSecondsRemaining = 0;
+
+  /* ================= Resumes ================= */
+  async function refreshResumes() {
+    const container = document.getElementById('resumeList');
+    if (!container) return;
+    container.innerHTML = '<div class="small-muted">Loading resumes...</div>';
+    const res = await _apiFetch(API.MY_RESUMES);
+    let list = [];
+    if (res && res.ok) list = res.data || [];
+    else {
+      const alt = await _apiFetch('/api/resumes/my-resumes/');
+      if (alt && alt.ok) list = alt.data || [];
+    }
+    resumes = Array.isArray(list) ? list : (list?.results || []);
+    if (!resumes.length) {
+      container.innerHTML = `<div class="small-muted">No resumes uploaded.</div>`;
+      return;
+    }
+    container.innerHTML = '';
+    resumes.forEach(r => {
+      const id = r.id || r.pk || r.resume_id || '';
+      const fileUrl = (r.file && typeof r.file === 'string') ? r.file : (r.file && r.file.url ? r.file.url : '');
+      const fileName = r.file_name || (fileUrl ? fileUrl.split('/').pop() : `Resume ${id}`);
+      const skills = r.skills || '';
+      const uploaded = r.uploaded_at || r.created_at || '';
+      const div = document.createElement('div');
+      div.className = 'card mb-2 p-2';
+      div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="min-width:0">
+          <strong>${escapeHtml(fileName)}</strong><br>
+          <small class="text-muted">${escapeHtml(uploaded)}</small>
+          <div class="small-muted">${escapeHtml(String(skills)).slice(0,180)}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <a class="btn btn-sm btn-outline-primary" href="${escapeHtml(fileUrl) || '#'}" target="_blank" ${fileUrl ? '' : 'onclick="return false;"'}>View</a>
+          <button class="btn btn-sm btn-outline-danger" data-resume-id="${id}">Delete</button>
+        </div>
+      </div>`;
+      container.appendChild(div);
+      const del = div.querySelector('button[data-resume-id]');
+      del.addEventListener('click', async () => {
+        if (!confirm('Delete resume? This cannot be undone.')) return;
+        const rdel = await _apiFetch(API.DELETE_RESUME(id), { method: 'DELETE' });
+        if (rdel.ok) { showToast('Deleted', 'success'); refreshResumes(); }
+        else showToast('Delete failed', 'error');
+      });
+    });
+  }
+
+  async function handleUploadFile(file) {
+    if (!file) return showToast('No file', 'error');
+    const maxMB = 20;
+    if (file.size > maxMB * 1024 * 1024) return showToast(`Max ${maxMB}MB`, 'error');
+    const fd = new FormData(); fd.append('file', file);
+    showSpinner(true, 'Uploading resume...');
+    try {
+      const r = await _fetchWithAuth(API.UPLOAD, { method: 'POST', body: fd });
+      const text = await r.text().catch(()=>null);
+      if (r.ok) { showToast('Upload successful', 'success'); await refreshResumes(); }
+      else showToast(`Upload failed: ${r.status}`, 'error');
+    } catch (e) {
+      showToast('Upload error', 'error');
+    } finally { showSpinner(false); }
+  }
+
+  /* ================= Jobs ================= */
+  async function loadJobs() {
+    const el = document.getElementById('jobsList'); if (!el) return;
+    el.innerHTML = '<div class="small-muted">Loading jobs...</div>';
+    const res = await _apiFetch(API.JOBS);
+    if (!res.ok) {
+      el.innerHTML = `<div class="small-muted">Failed to load jobs (${res.status})</div>`;
+      return;
+    }
+    jobs = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+    if (!jobs || jobs.length === 0) { el.innerHTML = '<div class="small-muted">No jobs</div>'; return; }
+    el.innerHTML = '';
+    jobs.forEach(j => {
+      const id = j.id || j.pk || '';
+      const card = document.createElement('div');
+      card.className = 'list-group-item job-card d-flex justify-content-between align-items-start';
+      card.setAttribute('data-job-id', id);
+      card.innerHTML = `<div style="min-width:0">
+          <strong>${escapeHtml(j.title || `Job ${id}`)}</strong>
+          <div class="small-muted">${escapeHtml(j.company || '')} • ${escapeHtml(j.skills_required || j.skills || '')}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <div>
+            <button class="btn btn-sm btn-outline-primary view-job-btn" data-id="${id}">View</button>
+            <button class="btn btn-sm btn-outline take-quiz-btn" data-id="${id}">Take Quiz</button>
+            <button class="btn btn-sm btn-success apply-btn" data-id="${id}" disabled>Apply</button>
+          </div>
+          <div style="text-align:right"><span id="quiz-status-${id}" class="small text-muted">Not attempted</span></div>
+        </div>`;
+      el.appendChild(card);
+
+      card.querySelector('.view-job-btn')?.addEventListener('click', () => viewJob(id));
+      card.querySelector('.take-quiz-btn')?.addEventListener('click', () => openQuizModal(id));
+      card.querySelector('.apply-btn')?.addEventListener('click', () => openApplyModal(id));
+    });
+
+    // load attempt summary for each job
+    setTimeout(() => jobs.forEach(j => loadAttemptSummary(j.id)), 400);
+  }
+
+  async function viewJob(jobId) {
+    if (!jobId) return showToast('Invalid job', 'error');
+    showSpinner(true, 'Loading job...');
+    const res = await _apiFetch(API.JOB_DETAIL(jobId));
+    showSpinner(false);
+    if (!res.ok) return showToast('Failed to load job', 'error');
+    const job = res.data || {};
+    openJobDetailModal(job);
+  }
+
+  function openJobDetailModal(job) {
+    let modal = document.getElementById('jobDetailModal');
+    if (!modal) {
+      modal = document.createElement('div'); modal.id = 'jobDetailModal';
+      modal.className = 'modal fade';
+      modal.innerHTML = `
+      <div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="jobDetailTitle"></h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="jobDetailBody"></div>
+        <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button id="jobDetailApplyBtn" class="btn btn-primary">Apply</button></div>
+      </div></div>`;
+      document.body.appendChild(modal);
+    }
+    const title = modal.querySelector('#jobDetailTitle'); const body = modal.querySelector('#jobDetailBody'); const applyBtn = modal.querySelector('#jobDetailApplyBtn');
+    title.innerText = job.title || `Job ${job.id||''}`;
+    const company = job.company || '';
+    const desc = job.description || job.summary || '';
+    const skills = job.skills_required || job.skills || '';
+    body.innerHTML = `<div><strong>Company:</strong> ${escapeHtml(company)}</div>
+      <div><strong>Skills:</strong> ${escapeHtml(skills)}</div>
+      <hr><div style="white-space:pre-wrap">${escapeHtml(desc)}</div>`;
+    applyBtn.onclick = () => { try { bootstrap.Modal.getInstance(modal).hide(); } catch(e){}; openApplyModal(job.id || job.pk); };
+ try {
+  // remove focus from any element so bootstrap can safely manage focus/aria
+  try { document.activeElement && document.activeElement.blur(); } catch(e){}
+  bootstrap.Modal.getOrCreateInstance(modal).show();
+} catch (e) {
+  // last-resort fallback (shouldn't normally be used)
+  modal.style.display = 'block';
+}
+  }
+
+
+  /* ================= Quiz: modal, fetch, timer, submit ================= */
+  function createQuizModalIfMissing() {
+    if (document.getElementById('quizModal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'quizModal';
+    modal.style = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:99999';
+    modal.innerHTML = `<div style="background:#fff;padding:18px;border-radius:8px;max-width:900px;width:96%;max-height:88vh;overflow:auto;position:relative;">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h4 id="quizTitle">Quiz</h4><button id="quizClose" class="btn btn-sm btn-outline-secondary">Close</button>
+      </div>
+      <div id="quizMeta" style="margin-top:8px;color:#666"></div>
+      <div id="quizQuestions" style="margin-top:12px">Loading...</div>
+      <div id="quizTimer" style="position:absolute;right:16px;top:14px;font-weight:600"></div>
+      <div style="margin-top:12px;text-align:right"><button id="quizSubmit" class="btn btn-primary">Submit</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('#quizClose').addEventListener('click', closeQuizModal);
+    modal.querySelector('#quizSubmit').addEventListener('click', submitQuizAttempt);
+  }
+
+  async function openQuizModal(jobId) {
+    createQuizModalIfMissing();
+    const modal = document.getElementById('quizModal');
+    modal.style.display = 'flex';
+    modal.dataset.jobId = jobId;
+    const qWrap = modal.querySelector('#quizQuestions');
+    qWrap.innerHTML = 'Loading...';
+    let res = await _apiFetch(API.QUIZ_GET(jobId));
+    if (!res.ok) {
+      const gen = await _apiFetch(`/api/quiz/generate/${jobId}/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId }) });
+      if (gen.ok) res = gen;
+    }
+    if (!res.ok) { qWrap.innerHTML = `<div class="text-danger">Failed to load quiz (${res.status})</div>`; return; }
+    const body = res.data || {};
+    let questions = Array.isArray(body) ? body : (Array.isArray(body.questions) ? body.questions : (Array.isArray(body.questions_json) ? body.questions_json : null));
+    if (!questions || !Array.isArray(questions) || questions.length === 0) { qWrap.innerHTML = `<div class="text-danger">No questions available</div>`; return; }
+
+    let seconds = 300;
+    if (questions.length <= 5) seconds = 120;
+    else if (questions.length <= 10) seconds = 300;
+    else seconds = Math.min(1800, Math.ceil(questions.length / 10) * 300);
+
+    renderQuizQuestions(questions);
+    startQuizTimer(seconds);
+  }
+
+  function renderQuizQuestions(questions) {
+    const qWrap = document.getElementById('quizQuestions');
+    if (!qWrap) return;
+    qWrap.innerHTML = questions.slice(0, 50).map(q => {
+      const choices = (q.choices && typeof q.choices === 'object') ? q.choices : (Array.isArray(q.options) ? q.options : []);
+      const opts = Array.isArray(choices) ? choices.map((c, i) => `<div><label><input type="radio" name="q-${q.id}" value="${escapeHtml(String(i))}"> ${escapeHtml(String(c))}</label></div>`).join('') :
+        Object.entries(choices).map(([k, v]) => `<div><label><input type="radio" name="q-${q.id}" value="${escapeHtml(String(k))}"> ${escapeHtml(String(v))}</label></div>`).join('');
+      return `<div class="quiz-question" data-qid="${q.id}" style="margin-bottom:12px"><div style="font-weight:600">${escapeHtml(q.question || q.title || '')}</div><div style="margin-left:8px">${opts}</div></div>`;
+    }).join('');
+    const meta = document.getElementById('quizMeta');
+    if (meta) meta.textContent = `Questions: ${questions.length}`;
+  }
+
+  function startQuizTimer(seconds) {
+    const timerEl = document.getElementById('quizTimer');
+    stopQuizTimer();
+    quizSecondsRemaining = Number(seconds) || 0;
+    function tick() {
+      const m = Math.floor(quizSecondsRemaining / 60);
+      const s = quizSecondsRemaining % 60;
+      if (timerEl) timerEl.textContent = `⏳ ${m}:${String(s).padStart(2, '0')}`;
+      if (quizSecondsRemaining <= 0) {
+        stopQuizTimer();
+        showToast('Time up — submitting', 'info');
+        submitQuizAttempt(true);
+        return;
+      }
+      quizSecondsRemaining--;
+    }
+    tick();
+    quizTimerHandle = setInterval(tick, 1000);
+  }
+  function stopQuizTimer() { if (quizTimerHandle) { clearInterval(quizTimerHandle); quizTimerHandle = null; } const t = document.getElementById('quizTimer'); if (t) t.textContent = ''; }
+  function closeQuizModal() { try { stopQuizTimer(); const modal = document.getElementById('quizModal'); if (modal) modal.style.display = 'none'; } catch (e) {} }
+
+  async function submitQuizAttempt(auto = false) {
+    const modal = document.getElementById('quizModal'); if (!modal) return;
+    const jobId = modal.dataset.jobId;
+    const ans = {};
+    modal.querySelectorAll('.quiz-question').forEach(q => {
+      const qid = q.dataset.qid;
+      const sel = q.querySelector('input[type="radio"]:checked');
+      ans[qid] = sel ? sel.value : null;
+    });
+    const btn = document.getElementById('quizSubmit'); if (btn) btn.disabled = true;
+    try {
+      const payload = { job_id: jobId, answers: ans };
+      let res;
+      try {
+        res = await _fetchWithAuth(API.QUIZ_ATTEMPT_SUBMIT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      } catch (e) {}
+      let body = null;
+      if (res && typeof res.json === 'function') {
+        try { body = await res.json(); } catch (e) { body = null; }
+        if (!res.ok) {
+          const alt = await _fetchWithAuth(`/api/quiz/${jobId}/attempt/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers: ans }) });
+          if (alt && typeof alt.json === 'function') {
+            try { body = await alt.json(); } catch (e) { body = body || null; }
+          }
+        }
+      } else {
+        const rpc = await _apiFetch(API.QUIZ_ATTEMPT_SUBMIT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (rpc && rpc.ok) body = rpc.data;
+        else {
+          const altRpc = await _apiFetch(`/api/quiz/${jobId}/attempt/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers: ans }) });
+          if (altRpc && altRpc.ok) body = altRpc.data;
+        }
+      }
+
+      const passed = body && (body.passed === true || (body.passed && body.passed === 'true'));
+      const score = body && (body.score || body.total ? `${body.score || body.value || 0}/${body.total || body.max || ''}` : null);
+      if (passed) showToast(`Passed — ${score || ''}`, 'success');
+      else showToast(`Quiz submitted — ${score || ''}`, 'info');
+      await loadAttemptSummary(jobId);
+      await loadMyApplications();
+      closeQuizModal();
+    } catch (e) {
+      console.error('quiz submit', e);
+      showToast('Quiz submit failed', 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  /* attempt summary for job (show latest attempt & enable apply) */
+  async function loadAttemptSummary(jobId) {
+    if (!jobId) return;
+    const container = document.getElementById(`quiz-status-${jobId}`) || document.querySelector(`.job-card [id="quiz-status-${jobId}"]`);
+    const tries = [
+      API.QUIZ_ATTEMPTS_BY_JOB(jobId),
+      `/api/quiz/attempts/?job_id=${jobId}`,
+      `/api/quiz/attempts/?job=${jobId}`
+    ];
+    for (const u of tries) {
+      try {
+        const r = await _apiFetch(u);
+        if (!r.ok) continue;
+        const arr = Array.isArray(r.data) ? r.data : (r.data?.results || r.data?.attempts || []);
+        if (!arr || arr.length === 0) { if (container) container.textContent = 'Not attempted'; continue; }
+        const latest = arr.slice().sort((a,b) => new Date(b.finished_at||b.started_at||0) - new Date(a.finished_at||a.started_at||0))[0];
+        const passed = !!latest.passed;
+        if (container) container.textContent = passed ? 'Passed' : 'Failed';
+        const applyBtn = document.querySelector(`.apply-btn[data-id="${jobId}"]`);
+        if (applyBtn) applyBtn.disabled = !passed;
+        return arr;
+      } catch (e) { continue; }
+    }
+  }
+
+  /* ================= Applications ================= */
+  async function loadMyApplications() {
+    const el = document.getElementById('myApplicationsList'); if (!el) return;
+    el.innerHTML = '<div class="small-muted">Loading applications...</div>';
+    const tries = [API.MY_APPLICATIONS, API.APPLICATIONS, '/api/resumes/applications/?mine=true'];
+    let res = null;
+    for (const u of tries) {
+      const r = await _apiFetch(u);
+      if (!r) continue;
+      res = r;
+      break;
+    }
+    if (!res) { el.innerHTML = '<div class="small-muted">Failed to load applications</div>'; return; }
+    let apps = Array.isArray(res.data) ? res.data : (res.data?.applications || res.data?.results || []);
+    if (!Array.isArray(apps)) apps = [];
+    const token = localStorage.getItem('token') || '';
+    let currentUserId = null;
+    if (token) {
+      try {
+        const p = token.split('.')[1]; const payload = JSON.parse(atob(p)); currentUserId = payload?.user_id || payload?.id || payload?.sub;
+      } catch (e) {}
+    }
+    if (currentUserId) {
+      apps = apps.filter(a => {
+        const cand = a.candidate || a.candidate_id || (a.candidate && a.candidate.id) || (a.resume && (a.resume.user || a.resume.user_id));
+        return String(cand) === String(currentUserId) || !cand;
+      });
+    }
+
+    if (!apps.length) { el.innerHTML = '<div class="small-muted">No applications yet</div>'; return; }
+    el.innerHTML = '';
+    apps.forEach(a => {
+      const jobTitle = (a.job && (a.job.title || a.job)) || a.job_title || `Job ${a.job_id||''}`;
+      const status = a.status || a.application_status || 'pending';
+      const appliedAt = a.applied_at || a.created_at || '';
+      const resumeUrl = a.resume_file || (a.resume && (a.resume.file || ''));
+      const resumeLabel = (a.resume && (a.resume.file ? (a.resume.file.split('/').pop()) : `Resume ${a.resume.id||a.resume}`)) || `Resume ${a.resume_id || a.resume || ''}`;
+      const id = a.id || a.application_id || '';
+      const div = document.createElement('div');
+      div.className = 'card mb-2 p-2';
+      div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:start">
+        <div style="min-width:0">
+          <strong>${escapeHtml(jobTitle)}</strong>
+          <div class="small-muted">Applied: ${escapeHtml(appliedAt)} • Status: <span class="badge ${status==='shortlisted'?'bg-success':'bg-secondary'}">${escapeHtml(status)}</span></div>
+          <div class="small-muted">Resume: ${resumeUrl ? `<a href="${escapeHtml(resumeUrl)}" target="_blank">${escapeHtml(resumeLabel)}</a>` : escapeHtml(resumeLabel)}</div>
+        </div>
+        <div style="text-align:right">
+          <button class="btn btn-sm btn-outline-danger remove-app-btn" data-id="${id}">Withdraw</button>
+        </div>
+      </div>`;
+      el.appendChild(div);
+      div.querySelector('.remove-app-btn').addEventListener('click', async () => {
+        if (!confirm('Withdraw this application?')) return;
+        const tryUrls = [
+          `/api/resumes/applications/${id}/`,
+          `/api/applications/${id}/`,
+          API.APPLICATIONS + `${id}/`
+        ];
+        let ok = false;
+        for (const u of tryUrls) {
+          const r = await _apiFetch(u, { method: 'DELETE' });
+          if (r.ok) { ok = true; break; }
+        }
+        if (!ok) {
+          const r2 = await _apiFetch(`/api/resumes/applications/${id}/withdraw/`, { method:'POST' });
+          if (r2.ok) ok = true;
+        }
+        if (ok) { showToast('Withdrawn', 'success'); loadMyApplications(); }
+        else showToast('Could not withdraw', 'error');
+      });
+    });
+  }
+
+  async function exportApplicationsCSV() {
+    const res = await _apiFetch(API.MY_APPLICATIONS);
+    if (!res.ok) return showToast('Export not available', 'error');
+    const apps = Array.isArray(res.data) ? res.data : (res.data?.applications || []);
+    if (!apps.length) return showToast('No applications', 'info');
+    const headers = ['application_id','job_title','resume_id','status','applied_at'];
+    const rows = apps.map(a => [
+      a.id || '',
+      (a.job && (a.job.title || '')) || a.job_title || '',
+      a.resume_id || (a.resume && a.resume.id) || '',
+      a.status || '',
+      a.applied_at || a.created_at || ''
+    ]);
+    const csv = headers.join(',') + '\n' + rows.map(r => r.map(c => `"${(String(c||'')).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'my_applications.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    showToast('Downloaded CSV', 'success');
+  }
+
+  /* ================= Invites ================= */
+// scoped loadInvites: writes into invites modal body (not other invitesList)
+async function loadInvites() {
+  // find modal container
+  const modal = document.getElementById('invitesModal');
+  if (!modal) {
+    console.error('Invites modal not found (#invitesModal)');
+    return;
+  }
+
+  // prefer the invites container inside the modal
+  const wrap = modal.querySelector('#invitesList');
+  if (!wrap) {
+    console.error('Invites container #invitesList not found inside modal');
+    return;
+  }
+
+  // show loading inside modal container
+  wrap.innerHTML = '<div class="small-muted">Loading invites...</div>';
+
+  // fetch
+  const res = await _apiFetch(API.INVITES);
+  if (!res) {
+    wrap.innerHTML = `<div class="text-danger">Network error</div>`;
+    return;
+  }
+  if (!res.ok) {
+    // if res.data exists it may contain helpful detail
+    const detail = res.data?.detail || res.data || `Status ${res.status}`;
+    wrap.innerHTML = `<div class="text-danger">Failed to load invites: ${escapeHtml(String(detail))}</div>`;
+    return;
+  }
+
+  // correct parsing for your API shape (priority: invites -> results -> array)
+  const arr = res.data?.invites || res.data?.results || (Array.isArray(res.data) ? res.data : []);
+  console.log('Invites loaded', arr);
+
+  if (!arr || arr.length === 0) {
+    wrap.innerHTML = '<div class="small-muted">No invites.</div>';
+    return;
+  }
+
+// render list
+wrap.innerHTML = '';
+arr.forEach(inv => {
+  // get interview object or id (support both shapes)
+  const interview = (inv.interview && typeof inv.interview === 'object') ? inv.interview : {};
+  // if backend returns just an id (e.g. "interview": 3), fallback to that
+  const interviewId = interview.id || inv.interview_id || inv.interview;
+
+  const id = inv.id || inv.invite_id || '';
+  const title = inv.interview_title || interview.title || inv.title || 'Interview';
+  const scheduled = inv.scheduled_at || interview.scheduled_at || '';
+  const recruiter = inv.recruiter_name || inv.recruiter || '';
+  const status = (inv.status || 'pending').toLowerCase();
+
+  const canStart = (status === 'accepted') && isScheduledNowOrPast(scheduled) && interviewId;
+  const startBtnHtml = interviewId
+    ? `<button class="btn btn-sm btn-success start-invite" 
+         data-interview="${escapeHtml(interviewId)}" 
+         data-invite="${escapeHtml(id)}" 
+         ${canStart ? '' : 'disabled'} 
+         style="${canStart ? '' : 'opacity:0.65'}">Start</button>`
+    : '';
+
+  const card = document.createElement('div');
+  card.className = 'card mb-2 p-2';
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="min-width:0">
+        <strong>${escapeHtml(title)}</strong>
+        <div class="small-muted">${escapeHtml(recruiter)} • ${escapeHtml(formatLocalDateTime(scheduled))}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="small-muted">Status: ${escapeHtml(status)}</div>
+        <div style="margin-top:6px">
+          ${status === 'pending' ? `<button class="btn btn-sm btn-success accept-invite" data-id="${escapeHtml(id)}">Accept</button><button class="btn btn-sm btn-outline-danger decline-invite" data-id="${escapeHtml(id)}">Decline</button>` : ''}
+          ${startBtnHtml}
+          <button class="btn btn-sm btn-outline-secondary ms-1 view-invite" data-id="${escapeHtml(id)}">View</button>
+        </div>
+      </div>
+    </div>
+  `;
+  wrap.appendChild(card);
+
+    // wire buttons on this card
+    card.querySelectorAll('.accept-invite').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      const r = await _apiFetch(API.INVITE_RESPOND(id), { method:'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ response: 'accept' }) });
+      if (r && r.ok) { showToast('Accepted', 'success'); await loadInvites(); } else { showToast('Accept failed', 'error'); b.disabled = false; }
+    }));
+    card.querySelectorAll('.decline-invite').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      const r = await _apiFetch(API.INVITE_RESPOND(id), { method:'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ response: 'decline' }) });
+      if (r && r.ok) { showToast('Declined', 'success'); await loadInvites(); } else { showToast('Decline failed', 'error'); b.disabled = false; }
+    }));
+    card.querySelectorAll('.start-invite').forEach(b => b.addEventListener('click', async (e) => {
+  e.preventDefault();
+
+  const iid = b.dataset.interview;
+  const inviteId = b.dataset.invite;
+
+  // if button is disabled (scheduled in future), show friendly toast with scheduled time
+  if (b.disabled) {
+    const schedRaw = inv.scheduled_at || inv.interview?.scheduled_at || '';
+    const schedMsg = schedRaw ? formatLocalDateTime(schedRaw) : 'scheduled time';
+    showToast(`Come at scheduled time: ${schedMsg}`, 'info', 6000);
+    return;
+  }
+
+  // call backend to actually start attempt
+  b.disabled = true;
+  const r = await _apiFetch(API.START_INTERVIEW(iid), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invite: inviteId })
+  });
+
+  if (r && (r.status === 403 || r.status === 400)) {
+    const detail = r.data?.detail || r.data || `Status ${r.status}`;
+    const sched = r.data?.scheduled_start || r.data?.scheduled_at || null;
+    if (r.status === 403 && sched) {
+      showToast(`Cannot start yet. Scheduled at ${formatLocalDateTime(sched)}`, 'info', 6000);
+    } else {
+      showToast(detail, 'error', 5000);
+    }
+    b.disabled = false;
+    return;
+  }
+
+  let url = null;
+  if (r && r.ok && r.data) {
+    url = r.data.redirect_url || r.data.join_url || r.data.url || r.data.attempt_url;
+  }
+  if (!url) {
+    const pageBase = (API.INVITES || '/api/interviews/candidate/invites/').replace(/\/candidate\/.*$/, '');
+    url = `${pageBase}/page/candidate/${encodeURIComponent(iid)}/?invite=${encodeURIComponent(inviteId)}`;
+  }
+
+  try { window.open(url, '_blank'); } catch (e) { window.location.href = url; }
+  b.disabled = false;
+}));
+
+    card.querySelectorAll('.view-invite').forEach(b => b.addEventListener('click', () => viewInvite(b.dataset.id)));
+  });
+}
+
+
+
+  /* ---------- Invite modal helpers ---------- */
+// REPLACE your existing viewInvite(inviteId) with this robust version:
+async function viewInvite(inviteId) {
+  if (!inviteId) return showToast('Invite id missing', 'error');
+
+  // ensure modal container exists
+  let modal = document.getElementById('inviteDetailModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'inviteDetailModal';
+    modal.className = 'modal fade';
+    modal.innerHTML = `<div class="modal-dialog modal-lg"><div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Invite details</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body"><div id="inviteDetailContent">Loading...</div></div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+    </div></div>`;
+    document.body.appendChild(modal);
+  }
+
+  const content = modal.querySelector('#inviteDetailContent');
+  if (!content) {
+    console.error('invite detail content element missing');
+    return;
+  }
+
+  // show modal asap so user sees loading state (use bootstrap properly)
+  try { document.activeElement && document.activeElement.blur(); } catch(e){}
+  try { bootstrap.Modal.getOrCreateInstance(modal).show(); } catch(e) { modal.style.display = 'block'; }
+
+  content.innerHTML = `<div style="padding:14px;text-align:center">
+    <div class="spinner-border" role="status" style="width:2rem;height:2rem"></div>
+    <div style="margin-top:8px">Loading invite…</div></div>`;
+
+  try {
+    // fetch invites list (server returns { invites: [...] })
+    const listResp = await _apiFetch(API.INVITES);
+    if (!listResp || !listResp.ok) {
+      console.error('invite list failed', listResp);
+      content.innerHTML = `<div class="text-danger">Error loading invite (see console)</div>`;
+      return;
+    }
+
+    const arr = listResp.data?.invites || listResp.data?.results || (Array.isArray(listResp.data) ? listResp.data : []);
+    const inv = (arr || []).find(x => String(x.id) === String(inviteId) || String(x.invite_id) === String(inviteId));
+
+    if (!inv) {
+      // not found: show helpful message and log for debugging
+      console.warn('invite not found in list', { inviteId, arr });
+      content.innerHTML = `<div class="text-muted">Invite not found</div>`;
+      return;
+    }
+
+    // build display values
+    const interview = inv.interview || {};
+    const title = inv.interview_title || interview.title || inv.title || 'Interview';
+    const scheduledRaw = inv.scheduled_at || interview.scheduled_at || '';
+    const scheduledLocal = formatLocalDateTime(scheduledRaw);
+    const status = (inv.status || 'pending').toLowerCase();
+
+    // render details (simple & safe)
+    content.innerHTML = `
+      <div><strong>${escapeHtml(title)}</strong></div>
+      <div style="margin-top:6px"><strong>When:</strong> ${escapeHtml(scheduledLocal)}</div>
+      <div style="margin-top:8px"><strong>Message:</strong><div style="white-space:pre-wrap">${escapeHtml(inv.message || inv.note || '')}</div></div>
+      <div style="margin-top:8px"><strong>Status:</strong> ${escapeHtml(status)}</div>
+      <div style="margin-top:12px;text-align:right">
+        ${status === 'pending' ? `<button id="inviteAcceptBtn" class="btn btn-success btn-sm">Accept</button>
+          <button id="inviteDeclineBtn" class="btn btn-outline-danger btn-sm">Decline</button>` : ''}
+        ${(status === 'accepted') && (interview.id || inv.interview_id) ? `<button id="inviteStartBtn" class="btn btn-primary btn-sm">Start</button>` : ''}
+      </div>
+    `;
+
+    // wire buttons with safe handlers
+    modal.querySelector('#inviteAcceptBtn')?.addEventListener('click', async () => {
+      try {
+        const r = await _apiFetch(API.INVITE_RESPOND(inv.id), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ response: 'accept' }) });
+        if (r && r.ok) { showToast('Accepted', 'success'); await loadInvites(); try { bootstrap.Modal.getInstance(modal)?.hide(); } catch(e) { modal.style.display='none'; } }
+        else { console.error('accept failed', r); showToast('Accept failed', 'error'); }
+      } catch (e) { console.error(e); showToast('Network error', 'error'); }
+    });
+
+    modal.querySelector('#inviteDeclineBtn')?.addEventListener('click', async () => {
+      try {
+        const r = await _apiFetch(API.INVITE_RESPOND(inv.id), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ response: 'decline' }) });
+        if (r && r.ok) { showToast('Declined', 'success'); await loadInvites(); try { bootstrap.Modal.getInstance(modal)?.hide(); } catch(e) { modal.style.display='none'; } }
+        else { console.error('decline failed', r); showToast('Decline failed', 'error'); }
+      } catch (e) { console.error(e); showToast('Network error', 'error'); }
+    });
+
+    modal.querySelector('#inviteStartBtn')?.addEventListener('click', async () => {
+      const iid = (interview.id || inv.interview_id);
+      try {
+        const r = await _apiFetch(API.START_INTERVIEW(iid), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ invite: inv.id }) });
+        if (r && (r.status === 403 || r.status === 400)) {
+          const detail = r.data?.detail || r.data || `Status ${r.status}`;
+          const sched = r.data?.scheduled_start || r.data?.scheduled_at || null;
+          if (r.status === 403 && sched) showToast(`Cannot start yet. Scheduled at ${formatLocalDateTime(sched)}`, 'info', 6000);
+          else showToast(detail, 'error', 5000);
+          return;
+        }
+        let url = (r && r.ok && r.data) ? (r.data.redirect_url || r.data.join_url || r.data.url || r.data.attempt_url) : null;
+        if (!url) {
+          const pageBase = (API.INVITES || '/api/interviews/candidate/invites/').replace(/\/candidate\/.*$/, '');
+          url = `${pageBase}/page/candidate/${encodeURIComponent(iid)}/?invite=${encodeURIComponent(inv.id)}`;
+        }
+        try { window.open(url, '_blank'); } catch(e) { window.location.href = url; }
+      } catch (e) {
+        console.error('start error', e);
+        showToast('Failed to start interview', 'error');
+      }
+    });
+
+  } catch (err) {
+    console.error('viewInvite error', err);
+    content.innerHTML = `<div class="text-danger">Error loading invite (see console)</div>`;
+  }
+}
+
+
+
+  async function respondInvite(inviteId, action) {
+    if (!inviteId) return showToast('Invite id missing', 'error');
+    const act = String(action || '').toLowerCase();
+    if (!['accept','accepted','decline','declined','yes','no'].includes(act)) return showToast('Invalid action', 'error');
+    const payload = { response: act.startsWith('acc') ? 'accept' : 'decline' };
+
+    try {
+      const r = await _apiFetch(API.INVITE_RESPOND(inviteId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!r || !r.ok) {
+        console.error('respondInvite failed', r);
+        showToast('Failed to respond to invite', 'error');
+        return;
+      }
+      showToast(`Invite ${payload.response}ed`, 'success');
+      await loadInvites();
+      const detailModal = document.getElementById('inviteDetailModal'); if (detailModal) try { const b = bootstrap.Modal.getInstance(detailModal); if (b) b.hide(); } catch(e){ detailModal.style.display='none'; }
+      const invitesModal = document.getElementById('invitesModal'); if (invitesModal) invitesModal.style.display = 'none';
+    } catch (e) {
+      console.error('respondInvite error', e);
+      showToast('Network error', 'error');
+    }
+  }
+
+  // ensure a startInterview fallback is defined
+  if (!window.startInterview) {
+    window.startInterview = async function (interviewId, inviteId = null) {
+      try {
+        if (!interviewId) return;
+        const q = inviteId ? `?invite=${encodeURIComponent(inviteId)}` : '';
+        const pageBase = (API.INVITES || '/api/interviews/candidate/invites/').replace(/\/candidate\/.*$/, '');
+        window.location.href = `${pageBase}/page/candidate/${encodeURIComponent(interviewId)}/${q}`;
+      } catch (e) { console.error('fallback startInterview error', e); }
+    };
+  }
+
+  /* ================= Init + wiring ================= */
+  function init() {
+    console.log('candidate dashboard init');
+    document.getElementById('saveTokenBtn')?.addEventListener('click', () => {
+      const v = (document.getElementById('tokenInput')?.value || '').trim();
+      if (!v) return showToast('Paste token first', 'error');
+      localStorage.setItem('token', v); showToast('Token saved', 'success');
+    });
+    document.getElementById('uploadBtn')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const fi = document.getElementById('resumeFile'); if (!fi || !fi.files || fi.files.length===0) return showToast('Choose file', 'error');
+      handleUploadFile(fi.files[0]);
+    });
+    document.getElementById('refreshJobs')?.addEventListener('click', loadJobs);
+    document.getElementById('refreshMyAppsBtn')?.addEventListener('click', loadMyApplications);
+    document.getElementById('exportMyAppsBtn')?.addEventListener('click', exportApplicationsCSV);
+
+    if (!document.getElementById('applyModal')) {
+      const div = document.createElement('div'); div.id='applyModal'; div.style='display:none';
+      div.innerHTML = `<div style="padding:12px;background:#fff;border-radius:8px;max-width:520px;">
+        <h5>Apply</h5>
+        <form id="applyForm">
+          <div><label>Resume</label><select id="applyResumeSelect" class="form-control"></select></div>
+          <div style="margin-top:8px"><label>Message</label><textarea id="applyMessage" class="form-control" rows="3"></textarea></div>
+          <div style="margin-top:12px;text-align:right"><button id="applySubmitBtn" class="btn btn-primary">Apply</button></div>
+        </form>
+      </div>`;
+      document.body.appendChild(div);
+    }
+
+    document.addEventListener('submit', async (e) => {
+      if (!e.target || e.target.id !== 'applyForm') return;
+      e.preventDefault();
+      const jobId = window.__apply_job_id;
+      const resumeId = document.getElementById('applyResumeSelect')?.value;
+      const message = (document.getElementById('applyMessage')?.value || '').trim();
+      if (!jobId || !resumeId) return showToast('Select job and resume', 'error');
+      showSpinner(true, 'Applying...');
+      try {
+        let res = await _apiFetch(API.APPLY, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ job_id: jobId, resume_id: resumeId, message }) });
+        if (!res.ok) {
+          const fd = new FormData(); fd.append('job_id', jobId); fd.append('resume_id', resumeId); fd.append('message', message);
+          const r2 = await _fetchWithAuth(API.APPLY, { method:'POST', body: fd });
+          res = { ok: r2.ok, status: r2.status, data: await (async ()=>{ try { return await r2.json(); } catch { return null; } })() };
+        }
+        if (res.ok) {
+          showToast('Applied', 'success');
+          try { const m = document.getElementById('applyModal'); if (m && m.classList.contains('modal')) bootstrap.Modal.getInstance(m).hide(); else m.style.display='none'; } catch(e){}
+          loadMyApplications();
+        } else {
+          const msg = res.data?.detail || res.data?.message || `Status ${res.status}`;
+          showToast('Apply failed: ' + msg, 'error');
+        }
+      } catch (e) {
+        showToast('Apply error', 'error');
+      } finally { showSpinner(false); }
+    });
+
+    if (!document.getElementById('invitesModal')) {
+      const m = document.createElement('div'); m.id='invitesModal'; m.style='display:none;position:fixed;inset:0;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:99998';
+      m.innerHTML = `<div style="background:#fff;padding:16px;border-radius:8px;width:90%;max-width:720px;"><h5>Invites</h5><div id="invitesList"></div><div style="text-align:right;margin-top:12px"><button id="invitesClose" class="btn btn-secondary">Close</button></div></div>`;
+      document.body.appendChild(m);
+      m.querySelector('#invitesClose').addEventListener('click', ()=> m.style.display = 'none');
+    }
+
+    document.getElementById('viewInvitesBtn')?.addEventListener('click', () => {
+  const m = document.getElementById('invitesModal');
+  if (!m) return;
+  // show via bootstrap properly (manages aria & focus)
+  try { document.activeElement && document.activeElement.blur(); } catch(e){}
+  try { bootstrap.Modal.getOrCreateInstance(m).show(); } catch(e) { m.style.display='block'; }
+  // load invites inside modal container
+  loadInvites().catch(err => { console.error('loadInvites error', err); });
+});
+
+
+
+    refreshResumes(); loadJobs(); loadMyApplications(); setTimeout(loadInvites, 400);
+  }
+
+  window.openApplyModal = function (jobId) {
+    window.__apply_job_id = jobId;
+    const modal = document.getElementById('applyModal');
+    const sel = document.getElementById('applyResumeSelect');
+    if (!sel) return showToast('Apply modal missing', 'error');
+    sel.innerHTML = '<option value="">-- choose resume --</option>';
+    resumes.forEach(r => {
+      const id = r.id || r.pk || r.resume_id || '';
+      const name = r.file_name || (r.file ? (typeof r.file === 'string' ? r.file.split('/').pop() : (r.file.url ? r.file.url.split('/').pop() : `Resume ${id}`)) : `Resume ${id}`);
+      const opt = document.createElement('option'); opt.value = id; opt.text = name; sel.appendChild(opt);
+    });
+    try { if (modal && modal.classList.contains('modal')) new bootstrap.Modal(modal, { backdrop:'static' }).show(); else modal.style.display='block'; }
+    catch (e) { modal.style.display = 'block'; }
+  };
+
+  window.cdb = {
+    refreshResumes, loadJobs, loadMyApplications, loadInvites, openApplyModal, openQuizModal, exportApplicationsCSV
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+
+})();
+
+
+// ----------------- Auto cookie-auth integration (uses your _apiFetch / _fetchWithAuth) -----------------
+(async function autoCookieAuthUsingWrappers() {
+  // find UI elements
+  const tokenInputEl = document.getElementById('token');
+  const tokenStatus = document.getElementById('tokenStatus')||document.createElement('div');;
+  const tokenCard = tokenInputEl ? tokenInputEl.closest('.card') : document.querySelector('.sidebar');
+
+  function setStatus(txt, isError = false) {
+    if (!tokenStatus) return;
+    tokenStatus.innerText = txt;
+    tokenStatus.style.color = isError ? 'crimson' : '';
+  }
+  function hideTokenUI() {
+    if (tokenCard) tokenCard.style.display = 'none';
+    setStatus('Authenticated via cookies (auto)');
+  }
+  function showTokenUI() {
+    if (tokenCard) tokenCard.style.display = '';
+    setStatus('No cookie token — paste token or login');
+  }
+
+  // use your _apiFetch wrapper to test auth
+  async function checkAuth() {
+    try {
+      // prefer your wrapper; it returns { ok, status, data }
+      if (typeof _apiFetch === 'function') {
+        const res = await _apiFetch('/api/resumes/my-resumes/', { method: 'GET' });
+        return !!(res && res.ok && res.status !== 401);
+      }
+      // fallback to fetch with credentials if wrapper not present
+      const res = await fetch('/api/resumes/my-resumes/', { credentials: 'same-origin' });
+      return res.ok;
+    } catch (e) {
+      console.debug('checkAuth error', e);
+      return false;
+    }
+  }
+
+  // call any refresh functions you may have
+  async function runRefreshes() {
+    try { if (typeof refreshJobs === 'function') await refreshJobs(); } catch (e) { console.debug('refreshJobs failed', e); }
+    try { if (typeof refreshResumes === 'function') await refreshResumes(); } catch (e) { console.debug('refreshResumes failed', e); }
+    try { if (typeof refreshMyApplications === 'function') await refreshMyApplications(); } catch (e) { console.debug('refreshMyApplications failed', e); }
+    // if your functions are named differently add them above or replace names
+  }
+
+  // logout: call token logout endpoint to clear cookies
+  async function doLogout() {
+    try {
+      // use wrapper if you have one
+      let r;
+      if (typeof _fetchWithAuth === 'function') {
+        r = await _fetchWithAuth('/accounts/token/logout/', { method: 'POST', credentials: 'same-origin' });
+      } else {
+        r = await fetch('/accounts/token/logout/', { method: 'POST', credentials: 'same-origin' });
+      }
+      // if API wrapper returned an object like {ok,...} adapt:
+      if (r && typeof r.ok === 'boolean' && !r.ok && r.status) {
+        setStatus('Logout failed', true);
+        return false;
+      }
+      // success
+      showTokenUI();
+      setStatus('Logged out. Paste token or login.');
+      await runRefreshes();
+      return true;
+    } catch (e) {
+      setStatus('Logout failed', true);
+      console.debug('logout error', e);
+      return false;
+    }
+  }
+
+  // create logout button near token status
+  function createLogoutBtn() {
+    if (document.getElementById('cookieLogoutBtn')) return;
+    const wrapper = tokenCard || document.querySelector('.sidebar');
+    if (!wrapper) return;
+    const btn = document.createElement('button');
+    btn.id = 'cookieLogoutBtn';
+    btn.className = 'btn btn-sm btn-outline-danger mt-2';
+    btn.type = 'button';
+    btn.innerText = 'Logout';
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.innerText = 'Logging out...';
+      await doLogout();
+      btn.disabled = false;
+      btn.innerText = 'Logout';
+    });
+    // insert near tokenStatus or at end of wrapper
+    if (tokenStatus && tokenStatus.parentNode) tokenStatus.parentNode.insertBefore(btn, tokenStatus.nextSibling);
+    else wrapper.appendChild(btn);
+  }
+
+  // initialize: check auth, hide UI, call refreshes
+  async function init() {
+    setStatus('Checking authentication...');
+    const ok = await checkAuth();
+    if (ok) {
+      hideTokenUI();
+      await runRefreshes();
+    } else {
+      showTokenUI();
+    }
+    createLogoutBtn();
+  }
+
+  // run once, then periodically re-check
+  await init();
+  setInterval(async () => {
+    const ok = await checkAuth();
+    if (ok) {
+      hideTokenUI();
+    } else {
+      showTokenUI();
+    }
+  }, 60 * 1000); // every 60s
+})();
+
+
+
+

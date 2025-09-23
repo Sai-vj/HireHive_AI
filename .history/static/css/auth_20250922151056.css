@@ -1,0 +1,5 @@
+.auth-wrap { min-height: 70vh; }
+.auth-card { border-radius: 14px; }
+.auth-side { background: linear-gradient(180deg,#fff,#f8fbff); border-radius: 12px; height:100%; }
+.form-control { border-radius: 10px; padding: 12px; }
+.btn-primary { border-radius: 10px; }

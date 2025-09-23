@@ -1,0 +1,314 @@
+<!-- interviews/templates/candidate_interview.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Candidate Interview</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    #timer { font-size: 1.2rem; font-weight: bold; color: darkred; }
+    .question-card { margin-bottom: 15px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+  </style>
+</head>
+<body class="p-4">
+<div class="container">
+  <h3 id="iv-title">Interview</h3>
+  <div id="iv-info" class="mb-3">
+    <div><strong>Scheduled:</strong> <span id="iv-scheduled">—</span></div>
+    <div><strong>Duration:</strong> <span id="iv-duration">—</span> mins</div>
+    <div id="timer" class="mt-2"></div>
+  </div>
+
+  <div id="iv-desc" class="mb-3"></div>
+
+  <div id="controls">
+    <button id="startAttemptBtn" class="btn btn-primary">Start Attempt</button>
+    <a id="backToDash" class="btn btn-outline-secondary" href="/api/resumes/dashboard/candidate/">Back</a>
+  </div>
+
+  <form id="questionsForm" class="mt-3" style="display:none;">
+    <div id="questionsContainer"></div>
+    <button type="submit" class="btn btn-success">Submit Answers</button>
+  </form>
+
+  <div id="message" class="mt-3"></div>
+</div>
+
+<script>
+/* ---------- Config / helpers ---------- */
+const interviewId = "{{ interview_id }}"; // from Django context
+let attemptId = null;
+let timerInterval = null;
+let autosaveIntervalId = null;
+const AUTOSAVE_PERIOD_MS = 10000; // 10s
+
+function getCookie(name) {
+  const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return v ? v.pop() : '';
+}
+function warnUser(msg) {
+  const m = document.getElementById('message');
+  if (!m) return;
+  m.innerHTML = `<div class="alert alert-warning">${msg}</div>`;
+}
+/* ---------- Timer ---------- */
+function startTimer(minutes) {
+  if (!minutes || minutes <= 0) minutes = 30;
+  let remaining = Math.floor(minutes) * 60;
+  const el = document.getElementById("timer");
+  if (!el) return;
+  clearInterval(timerInterval);
+  el.textContent = `Time left: ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`;
+  timerInterval = setInterval(() => {
+    if (remaining <= 0) {
+      clearInterval(timerInterval);
+      submitAnswers(); // auto submit
+      return;
+    }
+    remaining--;
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    el.textContent = `Time left: ${m}:${s.toString().padStart(2,'0')}`;
+  }, 1000);
+}
+
+/* ---------- Render questions ---------- */
+function loadQuestions(questions) {
+  const container = document.getElementById("questionsContainer");
+  container.innerHTML = "";
+  if (!questions || !questions.length) {
+    container.innerHTML = "<div class='alert alert-warning'>No questions found.</div>";
+    return;
+  }
+  questions.forEach((q, idx) => {
+    const card = document.createElement("div");
+    card.className = "question-card mb-3 p-2 border";
+    let html = `<p><strong>Q${idx+1}:</strong> ${q.question_text}</p>`;
+    if (q.question_type === "mcq" && q.choices) {
+      // choices assumed as { "A": "opt1", "B": "opt2" }
+      for (const [opt, txt] of Object.entries(q.choices)) {
+        html += `
+          <div class="form-check">
+            <input type="radio" class="form-check-input" name="q_${q.id}" id="q_${q.id}_${opt}" value="${opt}">
+            <label class="form-check-label" for="q_${q.id}_${opt}">${opt}) ${txt}</label>
+          </div>`;
+      }
+    } else {
+      html += `<textarea class="form-control" name="q_${q.id}" rows="4"></textarea>`;
+    }
+    card.innerHTML = html;
+    container.appendChild(card);
+  });
+  document.getElementById("questionsForm").style.display = "block";
+}
+
+/* ---------- Collect answers ---------- */
+function collectAnswers() {
+  const form = document.getElementById('questionsForm');
+  if (!form) return {};
+  const fd = new FormData(form);
+  const answers = {};
+  for (const [k, v] of fd.entries()) {
+    const qid = k.replace(/^q_/, '');
+    // if multiple same keys (checkboxes) you can convert to array here
+    answers[qid] = v;
+  }
+  return answers;
+}
+
+/* ---------- Autosave ---------- */
+async function autosaveAttempt() {
+  if (!attemptId) return;
+  const answers = collectAnswers();
+  localStorage.setItem(`attempt_${attemptId}_draft`, JSON.stringify({ answers, when: new Date().toISOString() }));
+  try {
+    const accessToken = localStorage.getItem('access_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+    else headers['X-CSRFToken'] = getCookie('csrftoken') || '';
+    await fetch(`/api/interviews/candidate/attempts/${attemptId}/autosave/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ answers, draft: true })
+    });
+  } catch (e) {
+    console.warn('autosave failed', e);
+  }
+}
+function startAutoSave() {
+  if (autosaveIntervalId) clearInterval(autosaveIntervalId);
+  autosaveIntervalId = setInterval(autosaveAttempt, AUTOSAVE_PERIOD_MS);
+  const qContainer = document.getElementById('questionsContainer');
+  if (qContainer) {
+    qContainer.addEventListener('input', () => {
+      if (window._lastInputSaveTimer) clearTimeout(window._lastInputSaveTimer);
+      window._lastInputSaveTimer = setTimeout(autosaveAttempt, 1000);
+    });
+  }
+  window.addEventListener('beforeunload', () => {
+    const answers = collectAnswers();
+    localStorage.setItem(`attempt_${attemptId}_draft`, JSON.stringify({ answers, when: new Date().toISOString() }));
+    try {
+      const url = `/api/interviews/candidate/attempts/${attemptId}/autosave/`;
+      const payload = JSON.stringify({ answers, draft: true, unload: true });
+      if (navigator.sendBeacon) {
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+      }
+    } catch (e) { /* ignore */ }
+  });
+}
+
+/* ---------- Event logging (anti-cheat) ---------- */
+const eventLog = [];
+function logEvent(type, info={}) {
+  const entry = { ts: new Date().toISOString(), type, info };
+  eventLog.push(entry);
+  if (eventLog.length > 200) eventLog.shift();
+  if (eventLog.length % 5 === 0) sendEventLogs();
+}
+async function sendEventLogs() {
+  if (!attemptId || !eventLog.length) return;
+  try {
+    const accessToken = localStorage.getItem('access_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+    else headers['X-CSRFToken'] = getCookie('csrftoken') || '';
+    await fetch(`/api/interviews/candidate/attempts/${attemptId}/events/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ events: eventLog.splice(0) })
+    });
+  } catch (e) { console.warn('sendEventLogs failed', e); }
+}
+
+/* visibility / focus / copy-paste logs */
+document.addEventListener('visibilitychange', () => {
+  logEvent('visibilitychange', { state: document.visibilityState });
+  if (document.visibilityState !== 'visible') warnUser('Please do not switch tabs or minimize the browser during the attempt.');
+});
+window.addEventListener('blur', () => { logEvent('blur'); });
+window.addEventListener('focus', () => { logEvent('focus'); });
+document.addEventListener('copy', () => { logEvent('copy'); warnUser('Copy detected — this will be logged.'); });
+document.addEventListener('paste', () => { logEvent('paste'); warnUser('Paste detected — this will be logged.'); });
+
+/* ---------- Start Attempt (single unified function) ---------- */
+async function startAttemptHandler() {
+  const startBtn = document.getElementById("startAttemptBtn");
+  const errEl = document.getElementById("message");
+  if (startBtn) startBtn.disabled = true;
+  try {
+    const inviteId = new URLSearchParams(window.location.search).get('invite') || null;
+    const accessToken = localStorage.getItem('access_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+    else headers['X-CSRFToken'] = getCookie('csrftoken') || '';
+
+    // FIXED URL: candidate (no typo)
+    const resp = await fetch(`/api/interviews/candidate/${interviewId}/start/`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ invite: inviteId })
+    });
+
+    // Always await json
+    const data = await resp.json().catch(()=>({}));
+
+    if (!resp.ok) {
+      const msg = data.detail || data.error || JSON.stringify(data) || `Status ${resp.status}`;
+      throw new Error(msg);
+    }
+
+    // backend returns attempt_id or id
+    attemptId = data.attempt_id || data.id || null;
+    // questions and duration expected from backend
+    const questions = data.questions || [];
+    const duration = data.interview?.duration_minutes || data.duration_minutes || 30;
+
+    // hide start button, render questions, start timer, autosave, event logging setup
+    if (startBtn) startBtn.style.display = "none";
+    loadQuestions(questions);
+    startTimer(duration);
+
+    // start autosave and event logs only after attemptId known
+    if (attemptId) {
+      startAutoSave();
+      // BroadcastChannel only when attemptId available
+      try {
+        const bc = new BroadcastChannel(`attempt_${attemptId}_channel`);
+        bc.onmessage = (ev) => {
+          if (ev.data === 'hello') {
+            logEvent('other_tab_open', {});
+            warnUser('Another tab detected for this attempt.');
+          }
+        };
+        bc.postMessage('hello');
+      } catch (e) { /* ignore */ }
+    } else {
+      console.warn('Attempt created but no id returned; autosave/events disabled.');
+    }
+
+    // optional restore draft from localStorage
+    try {
+      const draft = localStorage.getItem(`attempt_${attemptId}_draft`);
+      if (draft) {
+        // you can parse and restore to fields if desired
+        // const parsed = JSON.parse(draft);
+        // restore logic...
+      }
+    } catch(e){}
+
+    // small success message
+    if (errEl) errEl.innerHTML = `<div class="alert alert-success">Attempt started.</div>`;
+
+  } catch (err) {
+    console.error('Start attempt error:', err);
+    if (errEl) errEl.innerHTML = `<div class="alert alert-danger">Failed to start attempt: ${err.message}</div>`;
+    if (startBtn) startBtn.disabled = false;
+  }
+}
+
+/* ---------- Submit answers ---------- */
+async function submitAnswers() {
+  if (!attemptId) {
+    warnUser('No attempt id — cannot submit.');
+    return;
+  }
+  const answers = collectAnswers();
+  const accessToken = localStorage.getItem('access_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+  else headers['X-CSRFToken'] = getCookie('csrftoken') || '';
+
+  try {
+    const res = await fetch(`/api/interviews/candidate/attempts/${attemptId}/submit/`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ answers })
+    });
+    if (res.ok) {
+      const data = await res.json().catch(()=>({}));
+      document.getElementById("message").innerHTML = `<div class="alert alert-success">Submitted! Score: ${data.score ?? 'N/A'} | Passed: ${data.passed ?? 'N/A'}</div>`;
+      document.getElementById("questionsForm").style.display = "none";
+      clearInterval(timerInterval);
+      if (autosaveIntervalId) clearInterval(autosaveIntervalId);
+    } else {
+      const err = await res.json().catch(()=>({}));
+      document.getElementById("message").innerHTML = `<div class="alert alert-danger">Submit failed: ${err.detail || JSON.stringify(err)}</div>`;
+    }
+  } catch (e) {
+    console.error('submit error', e);
+    document.getElementById("message").innerHTML = `<div class="alert alert-danger">Submit failed (network).</div>`;
+  }
+}
+
+/* ---------- Attach handlers ---------- */
+document.getElementById("startAttemptBtn")?.addEventListener("click", startAttemptHandler);
+document.getElementById("questionsForm")?.addEventListener("submit", function(e){
+  e.preventDefault();
+  submitAnswers();
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Candidate Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body{padding:18px;background:#f6f7fb;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .sidebar{width:320px;max-width:36vw}
+    .main{flex:1;min-width:0}
+    .job-card{cursor:pointer;padding:12px;border-radius:8px;border:1px solid #ececec;margin-bottom:8px;background:#fff}
+    .d-none{display:none!important}
+    #toastContainer{position:fixed;right:18px;top:18px;z-index:12000;width:320px}
+    .small-muted{color:#666;font-size:.95rem}
+    .resume-card{display:flex;justify-content:space-between;align-items:center}
+  </style>
+</head>
+<body>
+  <div id="toastContainer"></div>
+
+  <div class="d-flex gap-3">
+    <!-- LEFT sidebar -->
+    <div class="sidebar">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 style="margin:0">Jobs</h5>
+        <div>
+          <button id="refreshJobs" class="btn btn-sm btn-outline-secondary">Refresh</button>
+        </div>
+      </div>
+
+      <div class="card p-2 mb-3">
+        <label class="form-label mb-1">Token</label>
+        <div class="d-flex gap-2 mb-2">
+          <input id="tokenInput" class="form-control form-control-sm" placeholder="Paste token (optional)" />
+          <button id="saveTokenBtn" class="btn btn-sm btn-success">Save</button>
+        </div>
+        <div class="mb-2">
+          <label class="form-label mb-1">Upload resume</label>
+          <input id="resumeFile" type="file" accept=".pdf,.doc,.docx" class="form-control form-control-sm" />
+          <div class="d-flex gap-2 mt-2">
+            <button id="uploadBtn" class="btn btn-sm btn-primary">Upload</button>
+            <button id="refreshResumesBtn" class="btn btn-sm btn-outline-secondary" onclick="refreshResumes()">Refresh</button>
+          </div>
+          <div id="tokenStatus" class="small-muted mt-2"></div>
+        </div>
+      </div>
+
+      <div id="resumeList" style="max-height:28vh;overflow:auto;padding:8px;border-radius:8px;background:#fff;border:1px solid #eee;margin-bottom:12px">
+        <!-- resumes injected -->
+      </div>
+
+      <div class="card p-2" style="background:#fff;border:1px solid #eee">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <small class="small-muted">My applications</small>
+          <div class="d-flex gap-2">
+            <button id="refreshMyAppsBtn" class="btn btn-sm btn-outline-secondary">Refresh</button>
+            <button id="exportMyAppsBtn" class="btn btn-sm btn-outline-dark">Export CSV</button>
+          </div>
+        </div>
+        <div id="myApplicationsList" style="max-height:22vh;overflow:auto;margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT main -->
+    <div class="main">
+      <div id="noJob" class="alert alert-secondary">Select a job to see details</div>
+
+      <div id="jobDetails" class="card p-3 mb-3 d-none" style="background:#fff;border:1px solid #eee">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h4 id="selectedJobTitle" style="margin:0">Job title</h4>
+            <div id="jobMeta" class="small-muted">Company • Experience • Location</div>
+          </div>
+          <div>
+            <button id="showMatchesBtn" class="btn btn-sm btn-outline-primary">Matches</button>
+            <button id="showShortlistsBtn" class="btn btn-sm btn-outline-success">Shortlists</button>
+            <button id="refreshApplicationsBtn" class="btn btn-sm btn-outline-secondary">Applications</button>
+          </div>
+        </div>
+
+        <hr />
+
+
+        <div id="matchesSection" style="display:none" class="mb-3">
+          <h6 style="margin:0 0 8px 0">Matches</h6>
+          <div id="matchesList"></div>
+        </div>
+
+        <div id="applicationsSection" style="display:none" class="mb-3">
+          <h6 style="margin:0 0 8px 0">Applications</h6>
+          <div id="applicationsList"></div>
+        </div>
+
+        <div id="shortlistSection" style="display:none" class="mb-3">
+          <h6 style="margin:0 0 8px 0">Shortlist</h6>
+          <div id="shortlistList"></div>
+        </div>
+      </div>
+      <!-- Your Invites Section -->
+<div id="invitesSection" class="card p-3 mb-3" style="background:#fff;border:1px solid #eee; display:none;">
+  <h6 style="margin:0 0 8px 0">Your Invites</h6>
+  <div id="invitesList"></div>
+</div>
+${status==='accepted' ? `<button class="btn btn-sm btn-primary start-interview-btn ms-2" data-interview-id="${interview.id || interview.pk || inv.interview_id || ''}">Start Interview</button>` : ''}
+
+
+
+
+      <!-- Jobs list -->
+      <div id="jobsList" style="background:#fff;padding:8px;border-radius:8px;border:1px solid #eee;max-height:64vh;overflow:auto">
+        <!-- job cards injected here by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Apply Modal (must include select id applyResumeSelect and applyMessage) -->
+  <div id="applyModal" class="modal fade" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md modal-dialog-centered">
+      <div class="modal-content">
+        <form id="applyForm">
+          <div class="modal-header">
+            <h5 class="modal-title">Apply for job</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-2">
+              <label class="form-label">Choose resume</label>
+              <select id="applyResumeSelect" class="form-select"></select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Message (optional)</label>
+              <textarea id="applyMessage" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="small-muted">Note: If apply fails, JS retries with FormData fallback.</div>
+          </div>
+          <div class="modal-footer">
+            <button id="applyCancelBtn" type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button id="applySubmitBtn" type="submit" class="btn btn-primary">Apply</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attempts modal (used by openAttemptHistoryModal) -->
+  <div id="attempts-modal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:99999">
+    <div style="width:900px;max-width:96%;background:#fff;border-radius:8px;padding:16px;border:1px solid #eee;max-height:80vh;overflow:auto;position:relative">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h5 id="attempts-modal-title" style="margin:0">Attempt history</h5>
+        <div><button id="attempts-modal-close" class="btn btn-sm btn-outline-secondary">Close</button></div>
+      </div>
+      <div id="attempts-loading" style="margin-top:12px">Loading attempts…</div>
+      <div id="attempts-list" style="margin-top:12px;display:none"></div>
+      <div style="margin-top:12px;text-align:right"><button id="attempts-modal-ok" class="btn btn-primary">OK</button></div>
+    </div>
+  </div>
+
+  <!-- Quiz modal is created by JS if needed - but having container is fine -->
+  <!-- (candidate_dashboard.js also creates #quiz-modal dynamically) -->
+
+  <!-- Bootstrap + your candidate_dashboard.js -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- change path if needed -->
+  <script type="module" src="/static/candidate_dashboard.js"></script>
+</body>
+</html>

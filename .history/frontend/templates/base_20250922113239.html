@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}HireApp{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { 
+      background: #f6f7fb; 
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; 
+    }
+    .navbar {
+      background: #fff; 
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .navbar-brand {
+      font-weight: 600;
+      color: #007bff !important;
+    }
+    footer {
+      margin-top: 40px;
+      padding: 20px 0;
+      text-align: center;
+      background: #fff;
+      border-top: 1px solid #e5e5e5;
+      font-size: 0.9rem;
+      color: #777;
+    }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg">
+  <div class="container">
+    <a class="navbar-brand" href="{% url 'frontend:home' %}">HireApp</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="{% url 'frontend:home' %}">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'frontend:news_list' %}">News</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'frontend:contact' %}">Contact</a></li>
+        {% if user.is_authenticated %}
+          <li class="nav-item"><a class="btn btn-sm btn-primary ms-2" href="{% url 'frontend:go_to_dashboard' %}">Dashboard</a></li>
+          <li class="nav-item">
+            <form method="post" action="{% url 'logout' %}" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger ms-2">Logout</button>
+            </form>
+          </li>
+        {% else %}
+          <li class="nav-item"><a class="btn btn-sm btn-success ms-2" href="{% url 'login' %}?next={% url 'frontend:go_to_dashboard' %}">Login</a></li>
+          <li class="nav-item"><a class="btn btn-sm btn-outline-primary ms-2" href="{% url 'register' %}">Register</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- Page content -->
+<div class="container my-4">
+  {% block content %}{% endblock %}
+</div>
+
+<!-- Footer -->
+<footer>
+  <div class="container">
+    <div>© {{ now|date:"Y" }} HireApp. All rights reserved.</div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
