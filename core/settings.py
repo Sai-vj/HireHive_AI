@@ -83,12 +83,8 @@ REST_FRAMEWORK = {
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'career_db',
-        'USER': 'root',
-        'PASSWORD': 'Sai@9876',   
-        'HOST': 'localhost',      
-        'PORT': '3306',
+        'ENGINE': 'django.db.backends.sqlite3',   # spelling correct
+        'NAME': BASE_DIR / 'db.sqlite3',          # db file project root la save aagum
     }
 }
 
@@ -119,12 +115,10 @@ LANGUAGE_CODE = 'en-us'
 
 
 
-
+STATIC_ROOT=os.path.join(BASE_DIR, "staticfiles")
 
 STATIC_URL = 'static/'
-STATICFILES_DIRS=[
-    BASE_DIR /'static'
-]
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
