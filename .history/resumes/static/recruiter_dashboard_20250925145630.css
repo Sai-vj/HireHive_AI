@@ -1,0 +1,67 @@
+/* ---------- visual polish for recruiter dashboard ---------- */
+
+/* page spacing + container */
+body {
+  padding: 28px;
+  background: #f7f9fb;
+  color: #222;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+/* jobs list card */
+.list-group-item.job-card {
+  border-radius: 10px;
+  margin-bottom: 10px;
+  transition: transform .12s ease, box-shadow .12s ease;
+  background: #ffffff;
+  border: 1px solid rgba(30, 41, 59, 0.06);
+  box-shadow: 0 1px 2px rgba(16,24,40,0.02);
+}
+.list-group-item.job-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 20px rgba(16,24,40,0.06);
+}
+
+/* job meta smaller + muted */
+.small-muted { font-size: .85rem; color: #6b7280; }
+
+/* main job panel */
+#jobDetails { background: #fff; padding: 18px; border-radius: 12px; box-shadow: 0 4px 18px rgba(15,23,42,0.04); }
+#jobTitle { font-weight: 700; letter-spacing: -0.02em; }
+
+/* action buttons group - prettier */
+.btn-sm {
+  border-radius: 8px;
+  padding: .375rem .7rem;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+.btn-success { background: linear-gradient(180deg,#16a34a,#059669); border: none; box-shadow: 0 6px 18px rgba(5,150,105,0.08);}
+.btn-secondary { background: linear-gradient(180deg,#374151,#4b5563); color: #fff; border: none; }
+.btn-outline-info { border-radius:8px; }
+
+/* resume card */
+.card.resume-card { border-radius: 10px; border: 1px solid rgba(15,23,42,0.04); }
+.card.resume-card .btn { margin-left: 6px; }
+
+/* badges for email state */
+.badge-sent { background: linear-gradient(90deg,#10b981,#059669); color: #fff; font-weight:600; }
+.badge-pending { background: linear-gradient(90deg,#f97316,#fb923c); color:#fff; font-weight:600; }
+.badge-missing { background: linear-gradient(90deg,#ef4444,#f43f5e); color:#fff; font-weight:600; }
+
+/* spinner overlay */
+#globalSpinner {
+  position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+  background: rgba(255,255,255,0.65);
+  display: none; align-items: center; justify-content: center; z-index: 2000;
+}
+#globalSpinner .spinner-border { width: 3.6rem; height: 3.6rem; }
+
+/* toast container style */
+#toastContainer .toast { box-shadow: 0 6px 24px rgba(15,23,42,0.08); border-radius: 10px; }
+
+/* subtle responsive adjustments */
+@media (max-width: 767px) {
+  #jobDetails { padding: 14px; }
+  .btn-sm { padding: .28rem .5rem; font-size: .86rem; }
+}

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Create Interview - Recruiter{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <h3>Create Interview</h3>
+  <div class="card p-3">
+    <form id="createInterviewForm">
+      <div class="mb-3">
+        <label class="form-label">Job</label>
+        <select id="jobSelect" class="form-select" required>
+          <option value="">— select job —</option>
+          {% for j in jobs %}
+            <option value="{{ j.id }}">{{ j.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Title</label>
+        <input id="title" class="form-control" required />
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Description</label>
+        <textarea id="description" class="form-control" rows="3"></textarea>
+      </div>
+
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Scheduled At (UTC ISO)</label>
+          <input id="scheduled_at" class="form-control" placeholder="2025-09-25T10:00:00Z" />
+        </div>
+        <div class="col-md-2 mb-3">
+          <label class="form-label">Duration (mins)</label>
+          <input id="duration_minutes" type="number" class="form-control" value="45" />
+        </div>
+        <div class="col-md-3 mb-3">
+          <label class="form-label">Mode</label>
+          <select id="mode" class="form-select">
+            <option value="online">online</option>
+            <option value="onsite">onsite</option>
+            <option value="hybrid">hybrid</option>
+          </select>
+        </div>
+        <div class="col-md-3 mb-3">
+          <label class="form-label">Passing %</label>
+          <input id="passing_percent" type="number" class="form-control" value="60" />
+        </div>
+      </div>
+
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" value="" id="is_active" checked>
+        <label class="form-check-label" for="is_active">Active</label>
+      </div>
+
+      <button class="btn btn-primary" id="createBtn">Create Interview</button>
+      <span id="createMsg" class="ms-3"></span>
+    </form>
+  </div>
+</div>
+{% endblock %}
+<script src="{% static 'resumes/templatesrecruiter_dashboard.js' %}"></script>
+
+
+{% block extra_js %}
+<script>
+(function(){
+  function getCookie(name){ const v = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)'); return v ? v.pop() : ''; }
+  function buildHeaders(){ const h={'Content-Type':'application/json'}; const token = localStorage.getItem('access_token'); if(token) h['Authorization']='Bearer '+token; else h['X-CSRFToken']=getCookie('csrftoken'); return h; }
+  document.getElementById('createInterviewForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const job = document.getElementById('jobSelect').value;
+    if(!job){ document.getElementById('createMsg').textContent='Select job'; return; }
+    const payload = {
+      title: document.getElementById('title').value,
+      description: document.getElementById('description').value,
+      scheduled_at: document.getElementById('scheduled_at').value || null,
+      duration_minutes: parseInt(document.getElementById('duration_minutes').value) || 45,
+      mode: document.getElementById('mode').value,
+      is_active: document.getElementById('is_active').checked,
+      passing_percent: parseInt(document.getElementById('passing_percent').value) || 60,
+      job: parseInt(job),
+    };
+    try {
+      document.getElementById('createBtn').disabled = true;
+      const res = await fetch('/api/interviews/recruiter/', {
+        method:'POST', credentials:'include', headers: buildHeaders(), body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if(res.ok){ document.getElementById('createMsg').innerHTML = 'Created — <a href="/recruiter/interviews/'+data.id+'/">Open</a>'; }
+      else { document.getElementById('createMsg').textContent = (data && (data.detail||JSON.stringify(data))) || 'Failed'; }
+    } catch(err){
+      console.error(err); document.getElementById('createMsg').textContent='Network error';
+    } finally { document.getElementById('createBtn').disabled = false; }
+  });
+})();
+</script>
+{% endblock %}

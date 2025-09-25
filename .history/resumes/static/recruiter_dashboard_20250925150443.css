@@ -1,0 +1,52 @@
+/* ---------- layout stability patch (paste at end) ---------- */
+
+/* make the shell a proper flex two-column layout and prevent overflow */
+.app-shell { display: flex; gap: 18px; align-items: flex-start; }
+.sidebar  { flex: 0 0 320px; max-width: 38vw; min-width: 240px; }
+.main     { flex: 1 1 auto; min-width: 0; }
+
+/* ensure job list doesn't cause horizontal scroll and long text wraps */
+#jobsList,
+.list-group-item.job-card,
+.job-card,
+.card {
+  max-width: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* guard images/buttons/badges inside cards */
+.job-card img { max-width: 100%; height: auto; display: block; }
+.job-card .btn, .job-card .badge { white-space: normal; }
+
+/* prevent any accidental horizontal page scroll */
+html, body, .container-fluid { overflow-x: hidden; }
+
+/* responsive stacking only on narrow screens (<= 900px) */
+ @media (max-width: 900px) {
+  .app-shell { flex-direction: column; gap: 12px; }
+  .sidebar { width: 100%; order: 2; }
+  .main    { order: 1; }
+  body { padding: 18px; } /* optional: less padding for small screens */
+} 
+
+/* tiny extra safety for very small phones */
+@media (max-width: 480px) {
+  .sidebar { min-width: 0; }
+  .small-muted { font-size: .82rem; }
+}
+
+/* prevent job details panel content from shrinking into vertical stack */
+#jobDetails .d-flex,
+#jobDetails .d-flex.flex-wrap {
+  flex-wrap: nowrap !important;   /* keep buttons in a row */
+  gap: 8px;                       /* space between buttons */
+  overflow-x: auto;                /* allow horizontal scroll if too many */
+}
+
+#jobDetails .d-flex .btn {
+  flex-shrink: 0;                  /* don’t shrink buttons */
+}

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Recruiter • Dashboard · HireHive{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'recruiter_dashboard.css' %}">
+<!-- Strong page-scoped overrides to avoid global conflicts -->
+<style>
+/* wrapper applied only on this page */
+.recruiter-page .app-shell,
+.recruiter-page .sidebar,
+.recruiter-page .main { all: initial; box-sizing: border-box; }
+
+/* restore only needed properties (very specific) */
+.recruiter-page .app-shell {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 18px !important;
+  align-items: flex-start !important;
+  padding: 18px !important;
+  width: 100% !important;
+}
+.recruiter-page .sidebar {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 0 0 320px !important;
+  max-width: 320px !important;
+  min-width: 240px !important;
+  align-self: flex-start !important;
+  box-sizing: border-box !important;
+}
+.recruiter-page .main {
+  display: block !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  align-self: flex-start !important;
+  box-sizing: border-box !important;
+}
+
+/* jobs list layout */
+.recruiter-page #jobsList {
+  max-height: calc(72vh - 20px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 12px !important;
+}
+
+/* ensure job cards full width and aligned */
+.recruiter-page .job-card,
+.recruiter-page .list-group-item.job-card {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 0 10px 0 !important;
+  padding: 12px !important;
+  box-sizing: border-box !important;
+}
+
+/* top-align main content and keep placeholder visible */
+.recruiter-page #noJob { display: block !important; margin:0 !important; }
+.recruiter-page #jobDetails { display: block !important; }
+
+/* footer safety: make room and ensure footer doesn't overlap recruiter page */
+.recruiter-page .container-fluid { padding-bottom: calc(60px + 18px) !important; }
+
+/* highest-priority defensive overrides to cancel rogue floats/positions */
+.recruiter-page .sidebar[style], .recruiter-page .sidebar, .recruiter-page .app-shell {
+  position: static !important;
+  float: none !important;
+}
+
+/* Mobile: stack properly */
+@media (max-width:900px) {
+  .recruiter-page .app-shell { flex-direction: column !important; gap: 12px !important; }
+  .recruiter-page .sidebar { width: 100% !important; order: 2 !important; min-width: 0 !important; }
+  .recruiter-page .main { order: 1 !important; }
+}
+
+/* small polish */
+.recruiter-page .token-status { font-size:.9rem !important; color:#374151 !important; margin-top:8px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid recruiter-page">
+  <div class="app-shell">
+    <!-- LEFT: jobs list + token card -->
+    <aside class="sidebar">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">Jobs</h6>
+        <div class="d-flex gap-2">
+          <button id="refreshJobs" class="btn btn-sm btn-outline-secondary">Refresh</button>
+          <button id="addJobBtn" class="btn btn-sm btn-primary">Add</button>
+        </div>
+      </div>
+
+      <div id="jobsList" class="bg-white p-3" style="border-radius:10px; border:1px solid #eee;">
+        <!-- job cards injected by JS or server-side -->
+      </div>
+
+      <div class="card p-2 mt-3" style="background:#fff;border:1px solid #eee">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <strong>Token</strong>
+            <div id="tokenStatus" class="token-status">No token saved</div>
+          </div>
+          <div>
+            <button id="openTokenModalBtn" class="btn btn-sm btn-outline-primary">Manage</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- RIGHT: main details -->
+    <main class="main">
+      <div id="noJob" class="alert alert-secondary">Select a job to view details</div>
+
+      <div id="jobDetails" class="card p-3 mb-3 d-none" style="background:#fff;border:1px solid #eee;">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h4 id="selectedJobTitle" class="mb-0">Job title</h4>
+            <div id="jobMeta" class="small-muted">Company • Experience • Location</div>
+          </div>
+
+          <div class="d-flex gap-2 flex-wrap controls-row">
+            <button class="btn btn-sm btn-outline-info review-attempts-btn" data-job-pk="">Review</button>
+            <button id="showMatchesBtn" class="btn btn-sm btn-outline-primary">Matches</button>
+            <button id="showApplicationsBtn" class="btn btn-sm btn-outline-secondary">Applications</button>
+            <button id="showShortlistsBtn" class="btn btn-sm btn-outline-success">Shortlists</button>
+            <button id="exportCsvBtn" class="btn btn-sm btn-outline-dark">Export CSV</button>
+            <button class="generate-quiz-btn btn btn-sm btn-secondary" data-job-pk="" data-questions-count="25">Generate Questions (AI)</button>
+            <span class="gen-status"></span>
+          </div>
+        </div>
+
+        <hr/>
+
+        <div id="shortlistSection" class="mb-3 d-none">
+          <h6 style="margin:0 0 8px 0">Shortlists</h6>
+          <div id="shortlistList" class="list-group list-group-flush"></div>
+        </div>
+
+        <div id="matchesSection" class="mb-3 d-none">
+          <h6 style="margin:0 0 8px 0">Matches</h6>
+          <div id="matchesList" class="list-group list-group-flush"></div>
+        </div>
+
+        <div id="applicationsSection" class="mb-3 d-none">
+          <h6 style="margin:0 0 8px 0">Applications</h6>
+          <div id="applicationsList" class="list-group list-group-flush"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Keep modals and other markup as before (not repeated to save space) -->
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'recruiter_dashboard.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // small safety: reflect saved token into UI
+    if (document.getElementById('tokenStatus') && window.savedToken) {
+      document.getElementById('tokenStatus').textContent = (window.savedToken && window.savedToken()) ? 'Token saved' : 'No token saved';
+    }
+  });
+</script>
+{% endblock %}
