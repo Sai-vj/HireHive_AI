@@ -9,14 +9,7 @@
   .auth-card { border-radius:12px; box-shadow:0 12px 40px rgba(12,30,80,0.06); }
   .form-control:focus, .form-select:focus { box-shadow: 0 6px 18px rgba(79,70,229,0.06); border-color:#4f46e5; }
   .btn-primary { border-radius:10px; font-weight:600; }
-
-  #pwdMessage[data-level="weak"]   { color:#dc3545; }   /* red */
-  #pwdMessage[data-level="medium"] { color:#fd7e14; }   /* orange */
-  #pwdMessage[data-level="strong"] { color:#198754; }   /* green */
-  #pwdConfirmMessage[data-match="no"]  { color:#dc3545; }
-  #pwdConfirmMessage[data-match="yes"] { color:#198754; }
 </style>
-
 {% endblock %}
 
 {% block content %}
@@ -97,58 +90,4 @@
 {% block extra_js %}
 <script src="{% static 'utils.js' %}" defer></script>
 <script src="{% static 'auth.js' %}" defer></script>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  const p1 = document.getElementById('regPwd');
-  const p2 = document.getElementById('regPwd2');
-  const t1 = document.getElementById('togglePwd1');
-  const t2 = document.getElementById('togglePwd2');
-  const msg = document.getElementById('pwdMessage');
-  const cmsg = document.getElementById('pwdConfirmMessage');
-
-  function getStrength(v){
-    const hasLower = /[a-z]/.test(v);
-    const hasUpper = /[A-Z]/.test(v);
-    const hasNum   = /[0-9]/.test(v);
-    const hasSpec  = /[^A-Za-z0-9]/.test(v);
-    const long8    = v.length >= 8;
-    if (!v) return {level:'', text:''};
-    if (hasLower && hasUpper && hasNum && hasSpec && long8) return {level:'strong', text:'Strong password ✓'};
-    if ((hasLower||hasUpper) && hasNum && long8) return {level:'medium', text:'Medium — add symbol & Uppercase'};
-    return {level:'weak', text:'Weak — use 8+ chars, upper/lower, digit & symbol'};
-  }
-
-  function updateStrength(){
-    const {level, text} = getStrength(p1.value || '');
-    if (msg){ msg.textContent = text; msg.dataset.level = level; }
-  }
-
-  function updateMatch(){
-    if (!p2 || !cmsg) return;
-    if (!p2.value){ cmsg.textContent=''; cmsg.dataset.match=''; return; }
-    const ok = p1.value === p2.value;
-    cmsg.textContent = ok ? 'Passwords match ✓' : 'Passwords do not match';
-    cmsg.dataset.match = ok ? 'yes' : 'no';
-  }
-
-  function bindToggle(btn, input){
-    if (!btn || !input) return;
-    btn.addEventListener('click', (e)=>{
-      e.preventDefault();
-      const isPwd = input.type === 'password';
-      input.type = isPwd ? 'text' : 'password';
-      btn.textContent = isPwd ? 'Hide' : 'Show';
-      btn.setAttribute('aria-pressed', String(!isPwd));
-    });
-  }
-
-  p1 && p1.addEventListener('input', ()=>{ updateStrength(); updateMatch(); });
-  p2 && p2.addEventListener('input', updateMatch);
-  bindToggle(t1, p1);
-  bindToggle(t2, p2);
-
-  updateStrength();
-});
-</script>
-
 {% endblock %}

@@ -84,4 +84,11 @@
 /* Footer small tweak */
 footer { border-top: 1px solid rgba(10,20,40,0.03); }
 
+<style>
+  #pwdMessage[data-level="weak"]   { color:#dc3545; }   /* red */
+  #pwdMessage[data-level="medium"] { color:#fd7e14; }   /* orange */
+  #pwdMessage[data-level="strong"] { color:#198754; }   /* green */
+  #pwdConfirmMessage[data-match="no"]  { color:#dc3545; }
+  #pwdConfirmMessage[data-match="yes"] { color:#198754; }
+</style>
 
