@@ -15,7 +15,7 @@ from resumes.utils.ats import score_resume_for_job  # (remove compute_embedding,
 
 
 import json, csv, logging
-import numpy as np
+
 
 from resumes.models import Shortlist, Resume, Job, Application
 from .serializers import (
@@ -325,19 +325,24 @@ def match_resumes(request, job_id):
         if job_skills:
             skills_pct = (len(job_skills & resume_skills) / float(len(job_skills))) * 100.0
 
-        # embedding compare only if both sides exist (precomputed)
+        # embedding compare only if both sides exist (rare on free tier)
         used_embedding_path = False
         try:
-            if getattr(r, 'embedding', None) is not None and job_emb is not None:
-                re = np.array(r.embedding)
-                je = job_emb
-                denom = (np.linalg.norm(je) * np.linalg.norm(re))
-                sim = float(np.dot(je, re) / denom) if denom > 0 else 0.0
+            if job_emb is not None and getattr(r, 'embedding', None):
+        # If you ever enable embeddings again, do pure-python cosine:
+                je = list(job_emb) if hasattr(job_emb, '__iter__') else []
+                re = list(getattr(r, 'embedding', []) or [])
+                import math
+                num = sum(a*b for a,b in zip(je, re))
+                da = math.sqrt(sum(a*a for a in je)) or 0.0
+                db = math.sqrt(sum(b*b for b in re)) or 0.0
+                sim = (num/(da*db)) if (da and db) else 0.0
                 embedding_pct = sim * 100.0
                 score_val = embedding_pct
                 used_embedding_path = True
         except Exception as e:
             logger.exception("resume embedding compare failed for %s: %s", getattr(r, 'id', None), e)
+
 
         # primary scorer (lightweight)
         if not used_embedding_path:
