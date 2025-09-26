@@ -30,7 +30,11 @@ SECRET_KEY = 'django-insecure-et8!y(64t0669_v)dh=xp0vv0jsg-q%4n7zp%pu7ivp%_*ik+y
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "hirehive-fijd.onrender.com",   # <-- add your Render domain
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
