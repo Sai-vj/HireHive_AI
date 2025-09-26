@@ -12,8 +12,6 @@ from resumes.utils.ats import score_resume_for_job  # (remove compute_embedding,
 
 
 
-
-
 import json, csv, logging
 import numpy as np
 
@@ -28,51 +26,9 @@ from .tasks import compute_and_store_embedding, send_shortlist_email
 from quiz.models import Quiz, QuizAttempt
 from interviews.models import InterviewInvite, Interview
 
-
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 from django.core.cache import cache
-# ---- Lightweight TF-IDF (no sklearn) ----
-import math, re
-from collections import Counter
-
-_word_re = re.compile(r"[A-Za-z0-9_]+")
-
-def _tok(s: str):
-    return [w.lower() for w in _word_re.findall(s or "")]
-
-def _idf_stats(docs):
-    N = len(docs); df = Counter()
-    for d in docs:
-        for t in set(d):
-            df[t] += 1
-    idf = {t: math.log((N + 1) / (df[t] + 1)) + 1.0 for t in df}
-    vocab = {t:i for i,t in enumerate(idf)}
-    return idf, vocab
-
-def _tfidf_vec(tokens, idf, vocab):
-    if not tokens or not vocab: return []
-    tf = Counter(tokens)
-    vec = [0.0]*len(vocab)
-    L = float(len(tokens)) or 1.0
-    for t,c in tf.items():
-        i = vocab.get(t)
-        if i is not None:
-            vec[i] = (c/L) * idf.get(t, 0.0)
-    return vec
-
-def _cos(a, b):
-    if not a or not b: return 0.0
-    num = sum(x*y for x,y in zip(a,b))
-    da = math.sqrt(sum(x*x for x in a))
-    db = math.sqrt(sum(y*y for y in b))
-    return (num/(da*db)) if da and db else 0.0
-
-def simple_tfidf_similarity(a_text: str, b_text: str) -> float:
-    docs = [_tok(a_text), _tok(b_text)]
-    idf, vocab = _idf_stats(docs)
-    va = _tfidf_vec(docs[0], idf, vocab)
-    vb = _tfidf_vec(docs[1], idf, vocab)
-    return _cos(va, vb)  # 0..1
-
 
 logger = logging.getLogger(__name__)
 CACHE_TTL = 60 * 5
@@ -249,9 +205,16 @@ def upload_resume(request):
     resume.save(update_fields=['skills', 'experience', 'extracted_text'])
 
     try:
-       compute_and_store_embedding.delay(resume.id)
+        compute_and_store_embedding.delay(resume.id)
     except Exception as e:
-        logger.warning("Celery enqueue failed; skipping sync embedding on free tier: %s", e)
+        logger.warning("Celery enqueue failed, falling back to sync compute: %s", e)
+        try:
+            emb = compute_embedding(resume.extracted_text or (resume.skills or ""))
+            if emb:
+                resume.embedding = emb
+                resume.save(update_fields=['embedding'])
+        except Exception as e2:
+            logger.exception("Sync embedding compute failed: %s", e2)
 
     serializer = ResumeUploadSerializer(resume, context={'request': request})
     return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -288,17 +251,22 @@ def match_resumes(request, job_id):
 
     resumes = Resume.objects.select_related('user').all()
 
-    job_text = " ".join(filter(None, [
-        getattr(job, 'title', ''),
-        getattr(job, 'description', ''),
-        getattr(job, 'skills_required', '')
-    ])).strip()
+    job_text = " ".join(filter(None, [getattr(job, 'title', ''), getattr(job, 'description', ''), getattr(job, 'skills_required', '')])).strip()
     if not job_text:
         return Response({"job_title": job.title, "matched_resumes": [], "total": 0})
 
-    # Embedding model disabled on free tier; will use stored embeddings if present
     model = None
+    try:
+        model = _ensure_model()
+    except Exception:
+        model = None
+
     job_emb = None
+    if model is not None:
+        try:
+            job_emb = model.encode(job_text, convert_to_numpy=True)
+        except Exception:
+            job_emb = None
 
     results = []
 
@@ -319,16 +287,16 @@ def match_resumes(request, job_id):
         skills_pct = 0.0
         score_val = 0.0
 
-        # skills overlap %
         job_skills = set([s.strip() for s in (job.skills_required or '').lower().split(',') if s.strip()])
         resume_skills = set([s.strip() for s in (r.skills or '').lower().split(',') if s.strip()])
         if job_skills:
             skills_pct = (len(job_skills & resume_skills) / float(len(job_skills))) * 100.0
+        else:
+            skills_pct = 0.0
 
-        # embedding compare only if both sides exist (precomputed)
         used_embedding_path = False
         try:
-            if getattr(r, 'embedding', None) is not None and job_emb is not None:
+            if job_emb is not None and getattr(r, 'embedding', None):
                 re = np.array(r.embedding)
                 je = job_emb
                 denom = (np.linalg.norm(je) * np.linalg.norm(re))
@@ -338,14 +306,14 @@ def match_resumes(request, job_id):
                 used_embedding_path = True
         except Exception as e:
             logger.exception("resume embedding compare failed for %s: %s", getattr(r, 'id', None), e)
+            embedding_pct = None
+            used_embedding_path = False
+            score_val = 0.0
 
-        # primary scorer (lightweight)
         if not used_embedding_path:
             try:
-                raw_score = score_resume_for_job(
-                    job_text_local, resume_text_local,
-                    job_skills=job.skills_required, resume_skills=r.skills
-                )
+                raw_score = 0.0
+                raw_score = score_resume_for_job(job_text_local, resume_text_local, job_skills=job.skills_required, resume_skills=r.skills)
                 if isinstance(raw_score, dict):
                     raw_score = raw_score.get('score', 0.0)
                 try:
@@ -356,17 +324,26 @@ def match_resumes(request, job_id):
                 logger.exception("score_resume_for_job error for resume %s: %s", getattr(r, 'id', None), e)
                 score_val = 0.0
 
-        # TF-IDF fallback (dependency-free)
         try:
             if (not score_val or score_val < 1.0) and resume_text_local:
-                sim = simple_tfidf_similarity(job_text_local, resume_text_local)  # 0..1
-                tfidf_pct = float(sim) * 100.0
-                if tfidf_pct and tfidf_pct > (score_val or 0.0) + 0.1:
+                try:
+                    vec = TfidfVectorizer(stop_words='english').fit([job_text_local, resume_text_local])
+                    job_v = vec.transform([job_text_local])
+                    res_v = vec.transform([resume_text_local])
+                    sim = cosine_similarity(job_v, res_v)[0][0]
+                    tfidf_pct = float(sim) * 100.0
+                except Exception:
+                    vec = TfidfVectorizer(stop_words='english').fit([job_text_local, resume_text_local])
+                    job_v = vec.transform([job_text_local])
+                    res_v = vec.transform([resume_text_local])
+                    sim = cosine_similarity(job_v, res_v)[0][0]
+                    tfidf_pct = float(sim) * 100.0
+
+                if tfidf_pct and tfidf_pct > score_val + 0.1:
                     score_val = tfidf_pct
         except Exception as e:
             logger.exception("TFIDF fallback error for resume %s: %s", getattr(r, 'id', None), e)
 
-        # final blend
         try:
             embedding_val = embedding_pct or 0.0
             tfidf_val = tfidf_pct or 0.0
@@ -410,7 +387,6 @@ def match_resumes(request, job_id):
         "page_size": page_size,
         "matched_resumes": paged
     })
-
 
 
 @api_view(['GET', 'POST', 'DELETE'])

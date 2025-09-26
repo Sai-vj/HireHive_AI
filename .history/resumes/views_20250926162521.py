@@ -248,9 +248,9 @@ def upload_resume(request):
     resume.extracted_text = text[:50000]
     resume.save(update_fields=['skills', 'experience', 'extracted_text'])
 
-    try:
+     try:
        compute_and_store_embedding.delay(resume.id)
-    except Exception as e:
+     except Exception as e:
         logger.warning("Celery enqueue failed; skipping sync embedding on free tier: %s", e)
 
     serializer = ResumeUploadSerializer(resume, context={'request': request})
