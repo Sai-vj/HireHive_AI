@@ -753,36 +753,6 @@ async function viewInvite(inviteId){
 }
 
 
-async function respondInvite(inviteId, action) {
-  if (!inviteId) return showToast('Invite id missing','error');
-  const act = String(action||'').toLowerCase();
-  if (!['accept','decline','yes','no'].includes(act)) return showToast('Invalid action','error');
-  const payload = { response: act.startsWith('acc') ? 'accept' : 'decline' };
-  try {
-    const r = await _apiFetch(API.INVITE_RESPOND(inviteId), {
-      method:'POST', credentials:'include',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    if (!r || !r.ok) { showToast('Failed to respond','error'); return; }
-    showToast(`Invite ${payload.response}ed`,'success');
-    await loadInvites();
-    const detailModal = document.getElementById('inviteDetailModal');
-    if (detailModal) try { bootstrap.Modal.getInstance(detailModal)?.hide(); } catch(e){ detailModal.style.display='none'; }
-  } catch(e){ showToast('Network error','error'); }
-}
-
-//fallback interview
-if(!window.startInterview) {
-  window.startInterview = async function(interviewId, inviteId=null){
-    if(!interviewId) return;
-    const q = inviteId ? `?invite=${encodeURIComponent(inviteId)}` : '';
-    const base = (API.INVITES || '/api/interviews/candidate/invites/').replace(/\/candidate\/.*$/,'');
-    window.location.href = `${base}/page/candidate/${encodeURIComponent(interviewId)}/${q}`;
-  };
-}
-
-
   /* -------- Init & wiring -------- */
   function init(){
     console.log('candidate dashboard init');

@@ -1458,46 +1458,28 @@ async function callGenerateOnInterviewWithUrls(interviewId, nQuestions = 5) {
   return { ok:false, error:'generate endpoints failed' };
 }
 
-// --- TWEAK: createInterviewForJobWithUrls (adds credentials & fallback filter) ---
-async function createInterviewForJobWithUrls(jobId) {
-  if (!jobId) return { ok:false, error:'no jobId' };
-  const tries = [
-    `/api/interviews/recruiter/job/${encodeURIComponent(jobId)}/create/`,
-    `/api/interviews/recruiter/`,   // generic create
-    `/api/interviews/`
-  ];
-  const payload = {
-    job: jobId,
-    title: `Auto Interview — Job ${jobId}`,
-    description: `Auto-created interview for job ${jobId}`
-  };
-  for (const url of tries) {
-    try {
-      const res = await apiFetchSimple(url, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (res && res.ok && res.data) return { ok:true, interview: res.data };
-    } catch (e) {
-      console.warn('createInterview try failed', url, e);
+  async function createInterviewForJobWithUrls(jobId) {
+    if (!jobId) return { ok:false, error:'no jobId' };
+    const tries = [
+      `/api/interviews/recruiter/job/${encodeURIComponent(jobId)}/create/`,
+      `/api/interviews/recruiter/`, // fallback create path
+      `/api/interviews/`
+    ];
+    const payload = { job: jobId, title: `Auto Interview — Job ${jobId}`, description: `Auto-created interview for job ${jobId}` };
+    for (const url of tries) {
+      try {
+        const res = await apiFetchSimple(url, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (res && res.ok && res.data) return { ok:true, interview: res.data };
+      } catch (e) {
+        console.warn('createInterview try failed', url, e);
+      }
     }
+    return { ok:false, error:'create interview failed' };
   }
-
-  // Fallback: list & pick latest interview for this job (client-side filter)
-  try {
-    const listRes = await apiFetchSimple(`/api/interviews/recruiter/`, { credentials: 'include' });
-    if (listRes && listRes.ok && Array.isArray(listRes.data)) {
-      const match = listRes.data.find(iv => iv.job === jobId);
-      if (match) return { ok:true, interview: match };
-    }
-  } catch (e) {
-    console.warn('list interviews fallback failed', e);
-  }
-  return { ok:false, error:'create interview failed' };
-}
-
 
   /**
    * Master helper used by UI buttons in your file.
@@ -1505,45 +1487,54 @@ async function createInterviewForJobWithUrls(jobId) {
    * - Then calls the interview-level generate endpoint.
    * Returns an object { ok: true, data } or { ok:false, error }.
    */
-// --- Master helper unchanged except it benefits from the above fixes ---
-async function generateQuestionsForJobCreateInterviewThenGenerate(jobId, nQuestions = 5) {
-  if (!jobId) return { ok:false, error:'no job id' };
-  try {
-    showToast('Creating interview (if needed)…', 'info', 2000);
-    const created = await createInterviewForJobWithUrls(jobId);
-    let interviewObj = created?.interview;
+  async function generateQuestionsForJobCreateInterviewThenGenerate(jobId, nQuestions = 5) {
+    if (!jobId) return { ok:false, error:'no job id' };
+    try {
+      showToast('Creating interview (if needed)…', 'info', 2000);
 
-    if (!interviewObj) {
-      showToast('Unable to create or find interview for job', 'error', 4000);
-      return { ok:false, error:'no interview created/found' };
-    }
+      // 1) Try job-level create (preferred)
+      const created = await createInterviewForJobWithUrls(jobId);
+      let interviewObj = null;
+      if (created && created.ok && created.interview) {
+        interviewObj = created.interview;
+      } else {
+        // 2) If create failed, try to find an existing interview for the job by listing interviews (best-effort)
+        try {
+          const listRes = await apiFetchSimple(`/api/interviews/recruiter/?job=${encodeURIComponent(jobId)}`);
+          if (listRes && listRes.ok && Array.isArray(listRes.data) && listRes.data.length) {
+            interviewObj = listRes.data[0];
+          }
+        } catch (e) { console.warn('list interviews by job failed', e); }
+      }
 
-    const interviewId = interviewObj.id || interviewObj.pk || interviewObj.interview_id;
-    if (!interviewId) {
-      showToast('Interview created but id missing', 'error', 4000);
-      return { ok:false, error:'interview missing id' };
-    }
+      if (!interviewObj) {
+        showToast('Unable to create or find interview for job', 'error', 4000);
+        return { ok:false, error:'no interview created/found' };
+      }
 
-    showToast('Generating questions…', 'info', 2000);
-    const gen = await callGenerateOnInterviewWithUrls(interviewId, nQuestions);
-    if (gen?.ok) {
-      showToast('Interview questions generated', 'success', 3500);
-      // optional: refresh list so UI updates
-      try {
-        const r = await apiFetchSimple(`/api/interviews/recruiter/${encodeURIComponent(interviewId)}/questions/`, { credentials:'include' });
-        console.debug('questions after gen', r);
-      } catch {}
-      return { ok:true, data: gen.data || gen };
-    } else {
-      showToast('Generation failed', 'error', 4000);
-      return { ok:false, error: gen?.error || 'generate failed' };
+      const interviewId = interviewObj.id || interviewObj.pk || interviewObj.interview_id;
+      if (!interviewId) {
+        console.warn('interview object missing id', interviewObj);
+        showToast('Interview created but id missing', 'error', 4000);
+        return { ok:false, error:'interview missing id' };
+      }
+
+      showToast('Generating questions…', 'info', 2000);
+      const gen = await callGenerateOnInterviewWithUrls(interviewId, nQuestions);
+      if (gen && gen.ok) {
+        showToast('Interview questions generated', 'success', 3500);
+        return { ok:true, data: gen.data || gen };
+      } else {
+        console.warn('generation failed', gen);
+        showToast('Generation failed', 'error', 4000);
+        return { ok:false, error: gen && gen.error ? gen.error : 'generate failed' };
+      }
+    } catch (err) {
+      console.error('generateQuestionsForJob error', err);
+      showToast('Generation error', 'error', 4000);
+      return { ok:false, error: String(err) };
     }
-  } catch (err) {
-    console.error('generateQuestionsForJob error', err);
-    showToast('Generation error', 'error', 4000);
-    return { ok:false, error: String(err) };
   }
-}
 
   // expose function to global rdash (fits your pattern)
   if (window.rdash) window.rdash.generateQuestionsForJobCreateInterviewThenGenerate = generateQuestionsForJobCreateInterviewThenGenerate;

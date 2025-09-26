@@ -30,8 +30,7 @@
 
 
 <div class="container py-3">
-  <div class="app-shell gap-3 mt-3">
-
+  <div class="d-flex gap-3 mt-3 flex-wrap">
     <!-- LEFT sidebar -->
     <aside class="sidebar">
       <div class="sidebar-header mb-3 d-flex align-items-center gap-2">
@@ -215,19 +214,4 @@
   });
   
 </script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const sb = document.getElementById('sidebar');
-  const bd = document.getElementById('sbBackdrop');
-  const btn = document.querySelector('.btn-toggle-sidebar');
-
-  const openSB = () => { sb?.classList.add('is-open'); bd?.classList.add('show'); };
-  const closeSB = () => { sb?.classList.remove('is-open'); bd?.classList.remove('show'); };
-
-  btn?.addEventListener('click', openSB);
-  bd?.addEventListener('click', closeSB);
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeSB(); });
-});
-</script>
-
 {% endblock %}

@@ -232,19 +232,5 @@
     });
   });
 </script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const sb = document.querySelector('.sidebar');
-  const bd = document.getElementById('sbBackdrop');
-  const btn = document.querySelector('.btn-toggle-sidebar');
-
-  const openSB = () => { sb?.classList.add('is-open'); bd?.classList.add('show'); };
-  const closeSB = () => { sb?.classList.remove('is-open'); bd?.classList.remove('show'); };
-
-  btn?.addEventListener('click', openSB);
-  bd?.addEventListener('click', closeSB);
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeSB(); });
-});
-</script>
 
 {% endblock %}

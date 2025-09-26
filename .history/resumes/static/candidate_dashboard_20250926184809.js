@@ -771,8 +771,6 @@ async function respondInvite(inviteId, action) {
     if (detailModal) try { bootstrap.Modal.getInstance(detailModal)?.hide(); } catch(e){ detailModal.style.display='none'; }
   } catch(e){ showToast('Network error','error'); }
 }
-
-//fallback interview
 if(!window.startInterview) {
   window.startInterview = async function(interviewId, inviteId=null){
     if(!interviewId) return;

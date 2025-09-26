@@ -267,8 +267,7 @@ def start_interview_attempt(request, pk):
 
     # select questions: prefer published if field exists, else all
     try:
-        qs = InterviewQuestion.objects.filter(interview=interview, status='published')
-
+        qs = InterviewQuestion.objects.filter(interview=interview)
         if hasattr(InterviewQuestion, 'status'):
             qs_pub = qs.filter(status__in=['published', 'live'])
             if qs_pub.exists():

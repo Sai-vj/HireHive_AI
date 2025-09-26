@@ -772,7 +772,7 @@ async function respondInvite(inviteId, action) {
   } catch(e){ showToast('Network error','error'); }
 }
 
-//fallback interview
+
 if(!window.startInterview) {
   window.startInterview = async function(interviewId, inviteId=null){
     if(!interviewId) return;

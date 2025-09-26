@@ -666,92 +666,71 @@ async function loadInvites(){
 }
 
 
-/* -------- Invite detail view (robust) -------- */
-async function viewInvite(inviteId){
-  if(!inviteId) return showToast('Invite id missing','error');
-  let modal = document.getElementById('inviteDetailModal');
-  if(!modal){
-    modal = document.createElement('div'); modal.id='inviteDetailModal'; modal.className='modal fade';
-    modal.innerHTML = `<div class="modal-dialog modal-lg"><div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title">Invite details</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
-      <div class="modal-body"><div id="inviteDetailContent">Loading...</div></div>
-      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
-    </div></div>`;
-    document.body.appendChild(modal);
-  }
-  const content = modal.querySelector('#inviteDetailContent'); if(!content) return;
-  try { document.activeElement && document.activeElement.blur(); bootstrap.Modal.getOrCreateInstance(modal).show(); } catch(e){ modal.style.display='block'; }
-  content.innerHTML = `<div style="padding:14px;text-align:center"><div class="spinner-border" role="status" style="width:2rem;height:2rem"></div><div style="margin-top:8px">Loading invite…</div></div>`;
-
-  try {
-    const listResp = await _apiFetch(API.INVITES, { credentials:'include' });
-    if(!listResp || !listResp.ok) { content.innerHTML = `<div class="text-danger">Error loading invite</div>`; return; }
-    const arr = listResp.data?.invites || listResp.data?.results || (Array.isArray(listResp.data)? listResp.data : []);
-    const inv = (arr||[]).find(x => String(x.id)===String(inviteId) || String(x.invite_id)===String(inviteId));
-    if(!inv) { content.innerHTML = `<div class="text-muted">Invite not found</div>`; return; }
-    const interview = inv.interview || {};
-    const title = inv.job_title || inv.interview_title || interview.title || inv.title || 'Interview';
-    const scheduledRaw = inv.scheduled_at || interview.scheduled_at || '';
-    const scheduledLocal = formatLocalDateTime(scheduledRaw);
-    const status = (inv.status||'pending').toLowerCase();
-
-    content.innerHTML = `<div><strong>${escapeHtml(title)}</strong></div>
-      <div style="margin-top:6px"><strong>When:</strong> ${escapeHtml(scheduledLocal)}</div>
-      <div style="margin-top:8px"><strong>Message:</strong><div style="white-space:pre-wrap">${escapeHtml(inv.message||inv.note||'')}</div></div>
-      <div style="margin-top:8px"><strong>Status:</strong> ${escapeHtml(status)}</div>
-      <div style="margin-top:12px;text-align:right">
-        ${status==='pending' ? `<button id="inviteAcceptBtn" class="btn btn-success btn-sm">Accept</button><button id="inviteDeclineBtn" class="btn btn-outline-danger btn-sm">Decline</button>` : ''}
-        ${(status==='accepted') && (interview.id||inv.interview_id) ? `<button id="inviteStartBtn" class="btn btn-primary btn-sm">Start</button>` : ''}
-      </div>`;
-
-    modal.querySelector('#inviteAcceptBtn')?.addEventListener('click', async ()=>{
-      const r = await _apiFetch(API.INVITE_RESPOND(inv.id), {
-        method:'POST', credentials:'include',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ response:'accept' })
+  /* -------- Invite detail view (robust) -------- */
+  async function viewInvite(inviteId){
+    if(!inviteId) return showToast('Invite id missing','error');
+    let modal = document.getElementById('inviteDetailModal');
+    if(!modal){
+      modal = document.createElement('div'); modal.id='inviteDetailModal'; modal.className='modal fade';
+      modal.innerHTML = `<div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Invite details</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body"><div id="inviteDetailContent">Loading...</div></div>
+        <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+      </div></div>`;
+      document.body.appendChild(modal);
+    }
+    const content = modal.querySelector('#inviteDetailContent'); if(!content) return;
+    try { document.activeElement && document.activeElement.blur(); bootstrap.Modal.getOrCreateInstance(modal).show(); } catch(e){ modal.style.display='block'; }
+    content.innerHTML = `<div style="padding:14px;text-align:center"><div class="spinner-border" role="status" style="width:2rem;height:2rem"></div><div style="margin-top:8px">Loading invite…</div></div>`;
+    try {
+      const listResp = await _apiFetch(API.INVITES);
+      if(!listResp || !listResp.ok) { content.innerHTML = `<div class="text-danger">Error loading invite</div>`; return; }
+      const arr = listResp.data?.invites || listResp.data?.results || (Array.isArray(listResp.data)? listResp.data : []);
+      const inv = (arr||[]).find(x => String(x.id)===String(inviteId) || String(x.invite_id)===String(inviteId));
+      if(!inv) { content.innerHTML = `<div class="text-muted">Invite not found</div>`; return; }
+      const interview = inv.interview || {};
+      const title = inv.interview_title || interview.title || inv.title || 'Interview';
+      const scheduledRaw = inv.scheduled_at || interview.scheduled_at || '';
+      const scheduledLocal = formatLocalDateTime(scheduledRaw);
+      const status = (inv.status||'pending').toLowerCase();
+      content.innerHTML = `<div><strong>${escapeHtml(title)}</strong></div>
+        <div style="margin-top:6px"><strong>When:</strong> ${escapeHtml(scheduledLocal)}</div>
+        <div style="margin-top:8px"><strong>Message:</strong><div style="white-space:pre-wrap">${escapeHtml(inv.message||inv.note||'')}</div></div>
+        <div style="margin-top:8px"><strong>Status:</strong> ${escapeHtml(status)}</div>
+        <div style="margin-top:12px;text-align:right">
+          ${status==='pending' ? `<button id="inviteAcceptBtn" class="btn btn-success btn-sm">Accept</button><button id="inviteDeclineBtn" class="btn btn-outline-danger btn-sm">Decline</button>` : ''}
+          ${(status==='accepted') && (interview.id||inv.interview_id) ? `<button id="inviteStartBtn" class="btn btn-primary btn-sm">Start</button>` : ''}
+        </div>`;
+      modal.querySelector('#inviteAcceptBtn')?.addEventListener('click', async ()=>{
+        const r = await _apiFetch(API.INVITE_RESPOND(inv.id), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ response:'accept' }) });
+        if(r && r.ok){ showToast('Accepted','success'); await loadInvites(); try{ bootstrap.Modal.getInstance(modal).hide(); }catch(e){ modal.style.display='none'; } }
+        else { showToast('Accept failed','error'); }
       });
-      if(r && r.ok){ showToast('Accepted','success'); await loadInvites(); try{ bootstrap.Modal.getInstance(modal).hide(); }catch(e){ modal.style.display='none'; } }
-      else { showToast('Accept failed','error'); }
-    });
-
-    modal.querySelector('#inviteDeclineBtn')?.addEventListener('click', async ()=>{
-      const r = await _apiFetch(API.INVITE_RESPOND(inv.id), {
-        method:'POST', credentials:'include',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ response:'decline' })
+      modal.querySelector('#inviteDeclineBtn')?.addEventListener('click', async ()=>{
+        const r = await _apiFetch(API.INVITE_RESPOND(inv.id), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ response:'decline' }) });
+        if(r && r.ok){ showToast('Declined','success'); await loadInvites(); try{ bootstrap.Modal.getInstance(modal).hide(); }catch(e){ modal.style.display='none'; } }
+        else { showToast('Decline failed','error'); }
       });
-      if(r && r.ok){ showToast('Declined','success'); await loadInvites(); try{ bootstrap.Modal.getInstance(modal).hide(); }catch(e){ modal.style.display='none'; } }
-      else { showToast('Decline failed','error'); }
-    });
-
-    modal.querySelector('#inviteStartBtn')?.addEventListener('click', async ()=>{
-      const iid = (interview.id || inv.interview_id);
-      try {
-        const r = await _apiFetch(API.START_INTERVIEW(iid), {
-          method:'POST', credentials:'include',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ invite: inv.id })
-        });
-        if (r && (r.status===403 || r.status===400)) {
-          const sched = r.data?.scheduled_start || r.data?.scheduled_at || null;
-          if (r.status===403 && sched) showToast(`Cannot start yet. Scheduled at ${formatLocalDateTime(sched)}`, 'info', 6000);
-          else showToast(r.data?.detail || `Status ${r.status}`,'error',5000);
-          return;
-        }
-        let url = r && r.ok && r.data ? (r.data.redirect_url || r.data.join_url || r.data.url || r.data.attempt_url) : null;
-        if (!url) {
-          const pageBase = (API.INVITES || '/api/interviews/candidate/invites/').replace(/\/candidate\/.*$/,'');
-          url = `${pageBase}/page/candidate/${encodeURIComponent(iid)}/?invite=${encodeURIComponent(inv.id)}`;
-        }
-        try { window.open(url,'_blank','noopener'); } catch(e) { window.location.href = url; }
-      } catch(e){ showToast('Failed to start interview','error'); }
-    });
-  } catch(err){
-    console.error('viewInvite error', err);
-    content.innerHTML = `<div class="text-danger">Error loading invite (see console)</div>`;
+      modal.querySelector('#inviteStartBtn')?.addEventListener('click', async ()=>{
+        const iid = (interview.id || inv.interview_id);
+        try {
+          const r = await _apiFetch(API.START_INTERVIEW(iid), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ invite: inv.id }) });
+          if (r && (r.status===403 || r.status===400)) {
+            const sched = r.data?.scheduled_start || r.data?.scheduled_at || null;
+            if (r.status===403 && sched) showToast(`Cannot start yet. Scheduled at ${formatLocalDateTime(sched)}`, 'info', 6000);
+            else showToast(r.data?.detail || `Status ${r.status}`,'error',5000);
+            return;
+          }
+          let url = r && r.ok && r.data ? (r.data.redirect_url || r.data.join_url || r.data.url || r.data.attempt_url) : null;
+          if (!url) {
+            const pageBase = (API.INVITES || '/api/interviews/candidate/invites/').replace(/\/candidate\/.*$/,'');
+            url = `${pageBase}/page/candidate/${encodeURIComponent(iid)}/?invite=${encodeURIComponent(inv.id)}`;
+          }
+          try { window.open(url,'_blank'); } catch(e) { window.location.href = url; }
+        } catch(e){ showToast('Failed to start interview','error'); }
+      });
+    } catch(err){ console.error('viewInvite error', err); content.innerHTML = `<div class="text-danger">Error loading invite (see console)</div>`; }
   }
-}
-
 
 async function respondInvite(inviteId, action) {
   if (!inviteId) return showToast('Invite id missing','error');
@@ -772,16 +751,15 @@ async function respondInvite(inviteId, action) {
   } catch(e){ showToast('Network error','error'); }
 }
 
-//fallback interview
-if(!window.startInterview) {
-  window.startInterview = async function(interviewId, inviteId=null){
-    if(!interviewId) return;
-    const q = inviteId ? `?invite=${encodeURIComponent(inviteId)}` : '';
-    const base = (API.INVITES || '/api/interviews/candidate/invites/').replace(/\/candidate\/.*$/,'');
-    window.location.href = `${base}/page/candidate/${encodeURIComponent(interviewId)}/${q}`;
-  };
-}
-
+  // fallback startInterview
+  if(!window.startInterview) {
+    window.startInterview = async function(interviewId, inviteId=null){
+      if(!interviewId) return;
+      const q = inviteId ? `?invite=${encodeURIComponent(inviteId)}` : '';
+      const pageBase = (API.INVITES || '/api/interviews/candidate/invites/').replace(/\/candidate\/.*$/,'');
+      window.location.href = `${pageBase}/page/candidate/${encodeURIComponent(interviewId)}/${q}`;
+    };
+  }
 
   /* -------- Init & wiring -------- */
   function init(){

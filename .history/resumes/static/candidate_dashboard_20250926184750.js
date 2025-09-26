@@ -772,16 +772,15 @@ async function respondInvite(inviteId, action) {
   } catch(e){ showToast('Network error','error'); }
 }
 
-//fallback interview
-if(!window.startInterview) {
-  window.startInterview = async function(interviewId, inviteId=null){
-    if(!interviewId) return;
-    const q = inviteId ? `?invite=${encodeURIComponent(inviteId)}` : '';
-    const base = (API.INVITES || '/api/interviews/candidate/invites/').replace(/\/candidate\/.*$/,'');
-    window.location.href = `${base}/page/candidate/${encodeURIComponent(interviewId)}/${q}`;
-  };
-}
-
+  // fallback startInterview
+  if(!window.startInterview) {
+    window.startInterview = async function(interviewId, inviteId=null){
+      if(!interviewId) return;
+      const q = inviteId ? `?invite=${encodeURIComponent(inviteId)}` : '';
+      const pageBase = (API.INVITES || '/api/interviews/candidate/invites/').replace(/\/candidate\/.*$/,'');
+      window.location.href = `${pageBase}/page/candidate/${encodeURIComponent(interviewId)}/${q}`;
+    };
+  }
 
   /* -------- Init & wiring -------- */
   function init(){
