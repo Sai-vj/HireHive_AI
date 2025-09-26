@@ -1,11 +1,10 @@
 # resumes/utils/ats.py  — lightweight, no-ML, no-NLTK
 
-import os, re, math
+import re, math
 from typing import Iterable, Dict, List
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# --- simple tokenization ---
 STOPWORDS = {
     'and','or','the','a','an','of','in','on','for','to','with','by','as',
     'is','are','be','this','that','from','at','it','you','your','we','our'
@@ -77,8 +76,6 @@ def score_resume_for_job(job_text: str,
         return {'tfidf': round(tfidf_s,4), 'keyword': round(kw_s,4), 'experience': round(exp_s,4), 'final_percent': final}
     return final
 
-# compatibility stubs for old imports
-def compute_embedding(text: str):
-    return []  # no-ML mode
-def _ensure_model():
-    return None
+# stubs for backward compatibility
+def compute_embedding(text: str): return []
+def _ensure_model(): return None

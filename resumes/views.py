@@ -7,8 +7,12 @@ from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.db import transaction, IntegrityError
 from django.contrib.auth.decorators import login_required
+# resumes/views.py (keep as-is)
+from resumes.utils.ats import score_resume_for_job  # (remove compute_embedding, _ensure_model)
 
-import json, csv, logging, traceback
+
+
+import json, csv, logging
 import numpy as np
 
 from resumes.models import Shortlist, Resume, Job, Application
@@ -17,7 +21,7 @@ from .serializers import (
     ApplicationSerializer
 )
 from resumes.utils.pdf_extract import extract_text_from_filefield
-from resumes.utils.ats import score_resume_for_job, compute_embedding, _ensure_model
+
 from .tasks import compute_and_store_embedding, send_shortlist_email
 from quiz.models import Quiz, QuizAttempt
 from interviews.models import InterviewInvite, Interview
