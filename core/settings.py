@@ -5,7 +5,11 @@ import pathlib
 from dotenv import load_dotenv
 
 TIME_ZONE = 'Asia/Kolkata'     # set to your local zone
-USE_TZ = True                  # recommended: store datetimes in UTC, display localized
+USE_TZ = True  
+
+# recommended: store datetimes in UTC, display localized
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
+
 
 
 
@@ -14,9 +18,8 @@ load_dotenv()
 OPENAI_API_KEY=os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
 
-SECRET_KEY = config('SECRET_KEY', default='unsafe-key')
-DEBUG = config('DEBUG', default=False, cast=bool)
-ALLOWED_HOSTS = ["hirehive.onrender.com"]
+
+
 CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://localhost:6379/1')
 
@@ -28,7 +31,7 @@ BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-et8!y(64t0669_v)dh=xp0vv0jsg-q%4n7zp%pu7ivp%_*ik+y'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     "localhost",
@@ -79,12 +82,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework.authentication.SessionAuthentication",
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ),
-}
 
 DATABASES = {
     'default': {
@@ -140,24 +137,39 @@ EMAIL_HOST_PASSWORD = ''      # replace or use env var
 DEFAULT_FROM_EMAIL = 'no-reply@hirehive.local'
 
 # Celery config
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/1')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
+CELERY_BROKER_URL = REDIS_URL or os.getenv("CELERY_BROKER_URL", "")
+CELERY_RESULT_BACKEND = REDIS_URL or os.getenv("CELERY_RESULT_BACKEND", "")
+
+if not CELERY_BROKER_URL:
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+
 # dev-only: run Celery tasks synchronously (no worker needed)
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 
 
-CACHES = {
-  "default": {
-    "BACKEND": "django_redis.cache.RedisCache",
-    "LOCATION": "redis://127.0.0.1:6379/1",
-    "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-  }
-}
+# Caching: use Redis if REDIS_URL set, else LocMem (no crash)
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "IGNORE_EXCEPTIONS": True,  # Avoid hard crash if Redis hiccups
+            },
+            "TIMEOUT": 300,
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "hirehive-local",
+            "TIMEOUT": 300,
+        }
+    }
 
 
 EMBEDDING_MODEL_NAME="all-MiniLM_l6-v2"
