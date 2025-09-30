@@ -393,7 +393,7 @@
       const titleEl = document.createElement('h4');
       titleEl.style.margin = '0 0 6px 0';
       titleEl.style.fontSize = '1rem';
-      //titleEl.style.whiteSpace = 'nowrap';//
+      titleEl.style.whiteSpace = 'nowrap';
       titleEl.style.overflow = 'hidden';
       titleEl.style.textOverflow = 'ellipsis';
       titleEl.textContent = j.title || '';
@@ -1397,18 +1397,6 @@
     qs('#showApplicationsBtn')?.addEventListener('click', () => loadApplicationsForSelectedJob());
     qs('#exportCsvBtn')?.addEventListener('click', () => exportResultsCsv(selectedJob ? selectedJob.id : null));
     qs('#filter')?.addEventListener('change', () => { if (selectedJob) fetchRecruiterResults(selectedJob.id); });
-
-    ['#showMatchesBtn','#showShortlistsBtn','#showApplicationsBtn','#exportCsvBtn'].forEach(sel=>{
-  const b = qs(sel);
-  if (b && !b._bound){
-    b._bound = true;
-    if (sel==='#showMatchesBtn')     b.addEventListener('click', (ev)=>showMatchesForSelectedJob(ev));
-    if (sel==='#showShortlistsBtn')  b.addEventListener('click', showShortlistsForSelectedJob);
-    if (sel==='#showApplicationsBtn')b.addEventListener('click', ()=>loadApplicationsForSelectedJob());
-    if (sel==='#exportCsvBtn')       b.addEventListener('click', ()=>exportResultsCsv(selectedJob?selectedJob.id:null));
-  }
-});
-
 
     const showMatchesBtn = qs('#showMatchesBtn');
     if (showMatchesBtn) {

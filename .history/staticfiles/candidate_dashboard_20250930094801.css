@@ -1,0 +1,68 @@
+/* candidate_dashboard.css (SCOPED) */
+.candidate-page .container { max-width: 1100px; }
+
+.candidate-page h1.display-6 { font-size: 2.2rem; font-weight: 700; }
+
+.candidate-page .small-muted { color: #6c757d; font-size: .9rem; }
+
+/* cards */
+.candidate-page .card { border-radius: 12px; box-shadow: 0 6px 20px rgba(20,20,20,0.04); }
+
+/* forms */
+.candidate-page .form-control { border-radius: 8px; box-shadow: none; border: 1px solid #e6e6e6; padding: 0.55rem .75rem; }
+.candidate-page input[type="file"] { padding: .35rem; }
+
+/* buttons */
+.candidate-page .btn { border-radius: 8px; padding: .55rem .9rem; }
+.candidate-page .btn-primary,
+.candidate-page .btn-success { box-shadow: none; }
+.candidate-page .btn:hover { transform: translateY(-2px); transition: transform .12s ease; will-change: transform; }
+
+/* toast */
+.candidate-page #toastContainer .toast { margin-bottom: .5rem; min-width: 240px; }
+
+/* spinner overlay */
+.candidate-page #globalSpinner { position: fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(255,255,255,0.66); z-index: 2000; }
+.candidate-page #globalSpinner .spinner-border { width:3rem; height:3rem; }
+
+/* resume card */
+.candidate-page .resume-card { display:flex; gap:16px; align-items:flex-start; justify-content:space-between; padding:16px; border-radius:8px; background:#fff; box-shadow:0 0 0 1px rgba(0,0,0,0.04); border:1px solid rgba(0,0,0,0.06); min-width:0; }
+.candidate-page .resume-card .resume-meta { flex:1 1 auto; min-width:0; }
+.candidate-page .resume-card .btn-group-right { flex:0 0 auto; display:flex; gap:8px; align-items:center; }
+.candidate-page .resume-card .btn { min-width:68px; padding:.38rem .6rem; border-radius:8px; font-size:.92rem; }
+.candidate-page .resume-card .btn-outline-primary { border-color:#2b7be4; color:#2b7be4; }
+.candidate-page .resume-card .btn-outline-primary:hover { background:#eaf2ff; color:#0b57c8; }
+.candidate-page .resume-card .btn-outline-danger { border-color:#e85a6b; color:#e85a6b; }
+.candidate-page .resume-card .btn-outline-danger:hover { background:#ffeef0; color:#c83a4d; }
+@media (max-width: 720px){
+  .candidate-page .resume-card { flex-direction:column; gap:10px; align-items:stretch; }
+  .candidate-page .resume-card .btn-group-right { justify-content:flex-end; }
+  .candidate-page .resume-card .btn { min-width:72px; padding:.35rem .55rem; }
+}
+.candidate-page .resume-card .small-muted { line-height:1.25; display:block; word-break:break-word; }
+
+/* candidate jobs list card (avoid clashing with recruiter) */
+.candidate-page #jobsList .job-card { display:block; cursor:pointer; padding:14px 12px; border-radius:8px; margin-bottom:6px; transition: background .08s ease, transform .06s ease; }
+.candidate-page #jobsList .job-card:hover { background:#f8fbff; transform:translateY(-1px); }
+.candidate-page #jobsList .job-card.active { background:#e9f3ff; border-left:4px solid #2b7be4; }
+
+/* quiz bits */
+.candidate-page #quiz-timer { display:inline-block; background:#fff; border:1px solid #e6e6e6; padding:4px 8px; border-radius:12px; font-weight:600; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+.candidate-page #quiz-timer.warning { background:#fff3cd; color:#8a6d00; border-color:#ffeeba; }
+.candidate-page #quiz-result-panel { max-width:720px; margin-top:12px; }
+
+/* sidebar bits used only here */
+.candidate-page .sidebar-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.candidate-page #jwtAuthStatus { font-weight:600; font-size:.95rem; color:#c0392b; }
+.candidate-page #jwtAuthStatus.not-logged-in { color:#6c757d; }
+.candidate-page #viewInvitesBtn { padding:.5rem .9rem; border-radius:10px; font-size:.98rem; width:100%; }
+.candidate-page .upload-card { padding:10px; border-radius:10px; }
+.candidate-page .upload-row { display:flex; gap:8px; align-items:center; margin-top:8px; }
+
+/* responsive tweaks */
+@media (max-width: 768px) {
+  .candidate-page .container { padding-left: 18px; padding-right: 18px; }
+  .candidate-page .d-flex.gap-2 { flex-wrap: wrap; gap: .5rem; }
+  .candidate-page #saveTokenBtn { width: 100%; }
+  .candidate-page .btn { font-size: .95rem; }
+}

@@ -13,8 +13,9 @@
 {% endblock %}
 
 {% block content %}
-<h1 style="background-color: rgb(135, 233, 236);">{{user}}'S Dasboard</h1>
-<hr>
+
+
+
 <div class="container-fluid recruiter-page">
   <div class="app-shell">
     <!-- LEFT: jobs list + token card -->
@@ -181,46 +182,5 @@
 
 {% block extra_js %}
 <script type="module" src="{% static 'recruiter_dashboard.js' %}"></script>
-<script>
-  // small client helpers for UI state
-  document.addEventListener('DOMContentLoaded', function () {
-    const userId = document.body.dataset.userId || '';
-    if (!userId) {
-      const t = document.getElementById('tokenStatus');
-      if (t) t.textContent = 'Not logged in';
-    }
-    // safety: ensure modals attach after DOM ready
-    const addJobBtn = document.getElementById('addJobBtn');
-    if (addJobBtn) addJobBtn.addEventListener('click', () => {
-      const modal = new bootstrap.Modal(document.getElementById('addJobModal'));
-      modal.show();
-    });
-
-    const openTokenBtn = document.getElementById('openTokenModalBtn');
-    if (openTokenBtn) openTokenBtn.addEventListener('click', () => {
-      const modal = new bootstrap.Modal(document.getElementById('tokenModal'));
-      modal.show();
-    });
-  });
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const sb  = document.querySelector('.sidebar');
-  const bd  = document.getElementById('sbBackdrop');
-  const btn = document.querySelector('.btn-toggle-sidebar');
-  if (!sb || !bd || !btn) return; // if elements missing, skip
-
-  const openSB  = () => { sb.classList.add('is-open'); bd.classList.add('show'); document.body.style.overflow='hidden'; };
-  const closeSB = () => { sb.classList.remove('is-open'); bd.classList.remove('show'); document.body.style.overflow=''; };
-
-  btn.addEventListener('click', openSB);
-  bd.addEventListener('click', closeSB);
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeSB(); });
-
-  // auto-close when resized to desktop
-  const mq = window.matchMedia('(min-width: 992px)');
-  mq.addEventListener('change', e => { if (e.matches) closeSB(); });
-});
-</script>
 
 {% endblock %}
