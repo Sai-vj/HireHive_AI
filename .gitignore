@@ -32,3 +32,11 @@ node_modules/
 # Build
 dist/
 build/
+
+node_modules/
+.env
+*.log
+dist/
+build/
+.vscode/
+
