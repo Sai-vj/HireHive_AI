@@ -125,7 +125,7 @@ USE_TZ = True
 # -----------------------------
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"           # collectstatic target
-STATICFILES_DIRS = [BASE_DIR / "static"]         # your local static dir
+        # your local static dir
 
 # Whitenoise storage (compressed + manifest caching)
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
