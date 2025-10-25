@@ -117,9 +117,13 @@ LANGUAGE_CODE = 'en-us'
 
 
 
-STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]   # <-- if you have a /static folder
-STATIC_ROOT = BASE_DIR / "staticfiles"     # <-- for collectstatic
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+
+
+
 
 
 

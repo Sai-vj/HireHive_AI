@@ -61,14 +61,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggle = document.getElementById('togglePwd');
   const pwdMsg = document.getElementById('pwdMessage');
 
-  // ----- Show/Hide password -----
+  // ----- Show/Hide password with emoji icon -----
   if (toggle && pwd) {
     toggle.addEventListener('click', (e) => {
       e.preventDefault();
       const isPwd = pwd.type === 'password';
       pwd.type = isPwd ? 'text' : 'password';
-      toggle.innerText = isPwd ? 'Hide' : 'Show';
-      toggle.setAttribute('aria-pressed', String(!isPwd));
+      toggle.textContent = isPwd ? '🙈' : '👁️';
     });
   }
 
@@ -95,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       pwdMsg.textContent = text;
-      pwdMsg.dataset.level = level; // style via CSS if needed
+      pwdMsg.dataset.level = level;
     };
 
     pwd.addEventListener('input', () => setStrength(pwd.value));

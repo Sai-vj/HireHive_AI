@@ -1,21 +1,21 @@
-/* Base hero / look */
+/* Base hero / look 
 .hero {
   background: linear-gradient(120deg,#f0f7ff, #fbfbff);
   padding-top:50px;
   padding-bottom:50px;
   border-radius: 14px;
-}
+}*/
 
 /* Headline */
 .display-5 {
-  color: #0b1a4a;
+  color: #9fe9ff;
   line-height: 1.05;
 }
 
 /* Mock card / hero image container */
 .mock-card {
   background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(250,250,255,0.95));
-  border-radius: 18px;
+  border-radius: 0%;
   padding: 18px;
 }
 
@@ -83,5 +83,23 @@
 
 /* Footer small tweak */
 footer { border-top: 1px solid rgba(10,20,40,0.03); }
+
+.hero {
+  position: relative;
+  min-height: 75vh;
+  overflow: hidden;
+  color: white;
+}
+
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background: url("/static/images/hero_bg.jpg") center/cover no-repeat;
+  filter: brightness(0.45) blur(2px);
+  z-index: -1;
+}
+
+
+
 
 

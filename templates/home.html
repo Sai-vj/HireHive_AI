@@ -3,13 +3,15 @@
 {% block title %}Home · HireHive{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/homepage_extra.css' %}">
+<link rel="stylesheet" href="{% static 'css/home.css' %}">
 <style>
   /* small in-template tweaks to match base theme */
   .hero {
     background: linear-gradient(135deg, rgba(79,70,229,0.06), rgba(236,72,153,0.03));
     border-radius: 12px;
   }
+  
+  
   .mock-card { background: white; border-radius: 12px; }
   .feature-card { border-radius: 12px; box-shadow: 0 8px 30px rgba(15,23,42,0.06); }
   .stat-pill { background: white; border-radius: 999px; padding: 8px 12px; box-shadow: 0 6px 18px rgba(16,24,40,0.05); }
@@ -19,54 +21,57 @@
 
 {% block content %}
 <!-- HERO -->
-<section class="hero py-5">
-  <div class="container">
+
+ <section class="hero position-relative py-5">
+  <div class="hero-bg"></div> <!-- background image layer -->
+
+  <div class="container position-relative" style="z-index: 2;">
     <div class="row align-items-center gy-4">
-      <div class="col-lg-6">
-        <h1 class="display-5 fw-bold">Build your career — <span class="text-primary">smarter with AI</span></h1>
-        <p class="lead text-muted mt-3">Resume suggestions, role-based dashboards, interview practice, and job tracking — all in one place.</p>
+      <div class="col-lg-6 text-white">
+        <h1 class="display-5 fw-bold">Build your career — <span class="text-info">smarter with AI</span></h1>
+        <p class="lead mt-3 opacity-75">
+          Resume suggestions, role-based dashboards, interview practice, and job tracking — all in one place.
+        </p>
 
         <div class="mt-4 d-flex flex-wrap gap-2">
-          <a class="btn btn-primary btn-lg" href="{% url 'register' %}">Get Started</a>
-          <a class="btn btn-outline-secondary btn-lg" href="{% url 'login' %}">Login</a>
+          <a class="btn btn-info btn-lg text-white" href="{% url 'register' %}">Get Started</a>
+          <a class="btn btn-outline-light btn-lg" href="{% url 'login' %}">Login</a>
         </div>
 
-        <div class="mt-4 d-flex gap-3 flex-wrap align-items-center text-muted small">
-          <div class="stat-pill d-flex align-items-center gap-2">
+        <div class="mt-4 d-flex gap-3 flex-wrap align-items-center small opacity-75">
+          <div class="stat-pill d-flex align-items-center gap-2 bg-white bg-opacity-10 text-white border border-light">
             <span>👥</span>
             <div>
               <div class="fw-semibold">Trusted</div>
-              <div class="small text-muted">100+ companies</div>
+              <div class="small">100+ companies</div>
             </div>
           </div>
 
-          <div class="stat-pill d-flex align-items-center gap-2">
+          <div class="stat-pill d-flex align-items-center gap-2 bg-white bg-opacity-10 text-white border border-light">
             <span>⚡</span>
             <div>
               <div class="fw-semibold">Faster hiring</div>
-              <div class="small text-muted">Avg. time-to-hire ↓ 30%</div>
+              <div class="small">Avg. time-to-hire ↓ 30%</div>
             </div>
           </div>
         </div>
 
-        <div class="mt-3 small text-muted">
-          Already have an account? <a href="{% url 'login' %}">Login</a>
-        </div>
       </div>
 
       <div class="col-lg-6 text-center d-none d-lg-block">
-        <div class="mock-card p-4 shadow-sm">
-          <!-- replace src with real hero image when available -->
-          <img src="data:image/svg+xml;ut,
-<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='700'>
-  <rect width='100%' height='100%' fill='%23eef2ff'/>
-  <text x='50%' y='50%' font-size='36' text-anchor='middle' fill='%23436cb3' font-family='Poppins,sans-serif'>HireHive — Hero Image</text>
-</svg>" alt="HireHive hero" class="img-fluid rounded" style="max-height:360px;"/>
+        <div class="mock-card p-4 shadow-lg rounded" style="background: rgba(255,255,255,0.2); backdrop-filter: blur(4px);">
+
+          <img src="{% static 'images/hero_bg.jpg' %}" 
+     alt="Hero"
+     class="img-fluid rounded shadow-lg" 
+     style="max-height:360px; object-fit:cover; width:100%;">
+
         </div>
       </div>
     </div>
   </div>
 </section>
+
 
 <!-- FEATURES -->
 <section class="py-5">

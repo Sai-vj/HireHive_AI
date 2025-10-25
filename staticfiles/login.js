@@ -1,4 +1,4 @@
-// static/login.js — cookie-based login flow
+// static/login.js — cookie-based login flow (fixed)
 
 const LOGIN_URL    = '/accounts/token/cookie/';
 const PROFILE_URL  = '/accounts/profile-api/';
@@ -17,7 +17,7 @@ async function attemptLogin(username, password) {
     const res = await fetch(LOGIN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      credentials: 'include', // send/receive cookies
+      credentials: 'include',
       body: JSON.stringify({ username, password })
     });
     const body = await res.json().catch(() => null);
@@ -25,7 +25,7 @@ async function attemptLogin(username, password) {
       return { ok: false, status: res.status, detail: body?.detail || 'Login failed' };
     }
     return { ok: true, data: body };
-  } catch (err) {
+  } catch {
     return { ok: false, status: 0, detail: 'Network error' };
   }
 }
@@ -44,7 +44,7 @@ async function fetchProfile() {
   }
 }
 
-function showMessage(el, text, type = 'danger') {
+function showMessage(text, type = 'danger') {
   const container = document.getElementById('msg');
   if (!container) return;
   container.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
@@ -55,61 +55,16 @@ function showMessage(el, text, type = 'danger') {
 
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('loginForm');
-  const msg = document.getElementById('msg');
   const loginBtn = document.getElementById('loginBtn');
 
-  if (!form) return;
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (loginBtn) loginBtn.disabled = true;
-    msg.innerText = '';
-
-    const username = (document.getElementById('username')?.value || '').trim();
-    const password = document.getElementById('password')?.value || '';
-
-    if (!username || !password) {
-      showMessage(msg, 'Please enter both username and password.', 'warning');
-      if (loginBtn) loginBtn.disabled = false;
-      return;
-    }
-
-    // try login
-    const result = await attemptLogin(username, password);
-    if (!result.ok) {
-      showMessage(msg, result.detail || 'Login failed', 'danger');
-      if (loginBtn) loginBtn.disabled = false;
-      return;
-    }
-
-    // fetch profile to confirm
-    let profile = await fetchProfile();
-    let role = getRoleFromProfile(profile);
-
-    if (!role) {
-      await new Promise(r => setTimeout(r, 300));
-      profile = await fetchProfile();
-      role = getRoleFromProfile(profile);
-    }
-
-    if (role) {
-      // success → go home, navbar-auth.js will inject dashboard
-      window.location.href = '/';
-      return;
-    }
-
-    showMessage(msg, 'Login succeeded but profile not available', 'warning');
-    if (loginBtn) loginBtn.disabled = false;
-  });
-});
-
-document.addEventListener('DOMContentLoaded', () => {
-  const toggle = document.getElementById('togglePwd');
   const pwd = document.getElementById('password');
-  const msg = document.getElementById('msg');
+  const toggle = document.getElementById('togglePwd');
+  const pwdMsg = document.getElementById('pwdMessage');
 
+  // ----- Show/Hide password -----
   if (toggle && pwd) {
-    toggle.addEventListener('click', () => {
+    toggle.addEventListener('click', (e) => {
+      e.preventDefault();
       const isPwd = pwd.type === 'password';
       pwd.type = isPwd ? 'text' : 'password';
       toggle.innerText = isPwd ? 'Hide' : 'Show';
@@ -117,28 +72,73 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ✅ Password strength check
-  pwd.addEventListener('input', () => {
-    const value = pwd.value;
-    let strength = 'Weak';
-    let color = 'red';
+  // ----- Strength message (below input) -----
+  if (pwd && pwdMsg) {
+    const setStrength = (value) => {
+      if (!value) { pwdMsg.textContent = ''; pwdMsg.dataset.level = ''; return; }
+      const hasLower = /[a-z]/.test(value);
+      const hasUpper = /[A-Z]/.test(value);
+      const hasNumber = /[0-9]/.test(value);
+      const hasSpecial = /[^A-Za-z0-9]/.test(value);
+      const isLong = value.length >= 8;
 
-    // Condition check
-    const hasLower = /[a-z]/.test(value);
-    const hasUpper = /[A-Z]/.test(value);
-    const hasNumber = /[0-9]/.test(value);
-    const hasSpecial = /[^A-Za-z0-9]/.test(value);
-    const isLong = value.length >= 8;
+      let level = 'weak';
+      let text = 'Weak — use 8+ chars, upper/lower, digit & symbol';
 
-    if (hasLower && hasUpper && hasNumber && hasSpecial && isLong) {
-      strength = 'Strong';
-      color = 'green';
-    } else if ((hasLower || hasUpper) && hasNumber && isLong) {
-      strength = 'Medium';
-      color = 'orange';
+      if ((hasLower || hasUpper) && hasNumber && isLong) {
+        level = 'medium';
+        text = 'Medium — add symbol & Uppercase for better security';
+      }
+      if (hasLower && hasUpper && hasNumber && hasSpecial && isLong) {
+        level = 'strong';
+        text = 'Strong password ✓';
+      }
+
+      pwdMsg.textContent = text;
+      pwdMsg.dataset.level = level; // style via CSS if needed
+    };
+
+    pwd.addEventListener('input', () => setStrength(pwd.value));
+  }
+
+  // ----- Login submit -----
+  if (!form) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (loginBtn) loginBtn.disabled = true;
+    showMessage('', 'light'); // clear
+
+    const username = (document.getElementById('username')?.value || '').trim();
+    const password = pwd?.value || '';
+
+    if (!username || !password) {
+      showMessage('Please enter both username and password.', 'warning');
+      if (loginBtn) loginBtn.disabled = false;
+      return;
     }
 
-    msg.innerHTML = `<span style="color:${color};font-weight:600">${strength} password</span>`;
+    const result = await attemptLogin(username, password);
+    if (!result.ok) {
+      showMessage(result.detail || 'Login failed', 'danger');
+      if (loginBtn) loginBtn.disabled = false;
+      return;
+    }
+
+    // fetch profile to confirm role
+    let profile = await fetchProfile();
+    let role = getRoleFromProfile(profile);
+    if (!role) {
+      await new Promise(r => setTimeout(r, 300));
+      profile = await fetchProfile();
+      role = getRoleFromProfile(profile);
+    }
+
+    if (role) {
+      window.location.href = '/';
+      return;
+    }
+
+    showMessage('Login succeeded but profile not available', 'warning');
+    if (loginBtn) loginBtn.disabled = false;
   });
 });
-
