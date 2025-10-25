@@ -14,7 +14,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Environment flags
 # -----------------------------
 # DEBUG can be set in env (DEBUG=True for local dev)
-DEBUG = os.getenv("DEBUG", "False").lower() in ("1", "true", "yes")
+DEBUG = os.getenv("DEBUG", "False") == "True"
+
 
 # Recommended: set SECRET_KEY in environment for production
 SECRET_KEY = os.getenv(
