@@ -54,9 +54,15 @@ def build_prompt(interview, params=None, n_questions=5):
 
 from openai import OpenAI
 
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+from openai import OpenAI
+from django.conf import settings
+
+def get_openai_client():
+    # Lazy initialization — safe for Render
+    return OpenAI(api_key=settings.OPENAI_API_KEY)
 
 def call_openai(prompt, model=None, max_tokens=800):
+    client = get_openai_client()  # Create inside function
     model = model or getattr(settings, "OPENAI_MODEL", "gpt-4o-mini")
     resp = client.chat.completions.create(
         model=model,
@@ -65,6 +71,7 @@ def call_openai(prompt, model=None, max_tokens=800):
         temperature=0.2,
     )
     return resp.choices[0].message.content
+
 
 
 def parse_ai_json(ai_text):
