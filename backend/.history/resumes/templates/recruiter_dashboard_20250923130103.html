@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Recruiter • Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+  .app-shell { display:flex; gap:18px; align-items:flex-start; padding:18px; }
+  .sidebar { width:320px; max-width:38vw; }
+  .main { flex:1; min-width:0; }
+  .job-card { cursor:pointer; padding:12px; border-radius:10px; border:1px solid #ececec; margin-bottom:10px; background:#fff; transition:box-shadow .12s,transform .08s; }
+  .job-card:hover{ box-shadow:0 6px 18px rgba(13,38,76,.06); transform:translateY(-3px); }
+  #toastContainer { position:fixed; right:18px; top:18px; z-index:12000; width:320px; max-width:calc(100% - 40px); }
+  .floating-token-btn { position:fixed; right:22px; bottom:22px; z-index:13000; border-radius:999px; padding:10px 14px; background:#0b5ed7; color:#fff; box-shadow:0 6px 18px rgba(11,94,215,.14); border:none; }
+  .token-status { font-size:.9rem; color:#374151; margin-top:8px; }
+  .small-muted { color:#6b7280; font-size:.95rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="topbar d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Recruiter Dashboard</h4>
+    <div class="small-muted">Manage jobs, matches, applications</div>
+  </div>
+
+  <div class="app-shell">
+    <!-- left -->
+    <div class="sidebar">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 style="margin:0">Jobs</h6>
+        <div>
+          <button id="refreshJobs" class="btn btn-sm btn-outline-secondary">Refresh</button>
+          <button id="addJobBtn" class="btn btn-sm btn-primary">Add</button>
+        </div>
+      </div>
+
+      <div id="jobsList" style="max-height:72vh;overflow:auto;background:#fff;padding:12px;border-radius:10px;border:1px solid #eee"></div>
+
+      <div class="card p-2 mt-3" style="background:#fff;border:1px solid #eee">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <strong>Token</strong>
+            <div class="token-status" id="tokenStatus">No token saved</div>
+          </div>
+          <div>
+            <button id="openTokenModalBtn" class="btn btn-sm btn-outline-primary">Manage</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- right -->
+    <div class="main">
+      <div id="noJob" class="alert alert-secondary">Select a job to view details</div>
+
+      <div id="jobDetails" class="card p-3 mb-3" style="background:#fff;border:1px solid #eee; display:none;">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h4 id="selectedJobTitle" style="margin:0">Job title</h4>
+            <div id="jobMeta" class="small-muted">meta</div>
+          </div>
+          <div class="d-flex gap-2 flex-wrap">
+            <button id="reviewAttemptsBtn" class="btn btn-sm btn-outline-warning">Review Attempts</button>
+            <button id="showMatchesBtn" class="btn btn-sm btn-outline-primary">Matches</button>
+            <button id="showApplicationsBtn" class="btn btn-sm btn-outline-secondary">Applications</button>
+            <button id="showShortlistsBtn" class="btn btn-sm btn-outline-success">Shortlists</button>
+            <button id="exportCsvBtn" class="btn btn-sm btn-outline-dark">Export CSV</button>
+            <button id="generateQuestionsBtn" class="btn btn-sm btn-warning" data-job-id="">Generate Questions (AI)</button>
+          </div>
+        </div>
+
+        <hr/>
+
+        <div id="shortlistSection" class="mb-3" style="display:none">
+          <h6 style="margin:0 0 8px 0">Shortlists</h6>
+          <div id="shortlistList"></div>
+        </div>
+
+        <div id="matchesSection" class="mb-3" style="display:none">
+          <h6 style="margin:0 0 8px 0">Matches</h6>
+          <div id="matchesList"></div>
+        </div>
+
+        <hr/>
+        <div id="applicationsSection" class="mb-3" style="display:none">
+          <h6 style="margin:0 0 8px 0">Applications</h6>
+          <div id="applicationsList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Job Modal (kept simple) -->
+<div class="modal fade" id="addJobModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form id="addJobForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Create Job</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2"><label class="form-label">Title</label><input id="jobTitle" class="form-control" required /></div>
+          <div class="mb-2"><label class="form-label">Company</label><input id="jobCompany" class="form-control" /></div>
+          <div class="mb-2"><label class="form-label">Skills</label><input id="jobSkills" class="form-control" /></div>
+          <div class="mb-2"><label class="form-label">Experience</label><input id="jobExperience" type="number" min="0" class="form-control" /></div>
+          <div class="mb-2"><label class="form-label">Vacancies</label><input id="jobVacancies" type="number" min="1" class="form-control" value="1" /></div>
+          <div class="mb-2"><label class="form-label">Description</label><textarea id="jobDescription" class="form-control" rows="4"></textarea></div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Invite Modal (overlay style) -->
+<div id="inviteModal" class="invite-overlay d-none" aria-hidden="true">
+  <div class="invite-card" role="dialog" aria-modal="true" aria-labelledby="inviteModalTitle">
+    <h5 id="inviteModalTitle" style="margin:0 0 8px 0">Invite candidate</h5>
+    <input type="hidden" id="invite_interview_id" />
+    <div class="mb-2"><label class="form-label">Candidate ID</label><input id="invite_candidate_id" class="form-control" autocomplete="off" /></div>
+    <div class="mb-2"><label class="form-label">Schedule at</label><input id="invite_scheduled_at" type="datetime-local" class="form-control" /></div>
+    <div class="mb-2"><label class="form-label">Message</label><textarea id="invite_message" class="form-control" rows="3">Hi, you are invited for interview.</textarea></div>
+    <div class="text-end"><button id="inviteCancelBtn" class="btn btn-sm btn-outline-secondary">Cancel</button> <button id="inviteSendBtn" class="btn btn-sm btn-success">Send Invite</button></div>
+  </div>
+</div>
+
+<!-- Token Modal -->
+<div class="modal fade" id="tokenModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content p-2">
+      <div class="modal-header"><h6 class="modal-title">Manage Token</h6><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body">
+        <div class="mb-2"><input id="tokenInput" class="form-control" placeholder="Paste recruiter token (JWT)" /></div>
+        <div class="d-flex gap-2">
+          <button id="saveTokenBtn" class="btn btn-primary btn-sm">Save</button>
+          <button id="clearTokenBtn" class="btn btn-outline-danger btn-sm">Clear</button>
+        </div>
+        <div id="tokenHelp" class="small-muted mt-2">Token stored in localStorage only for this browser.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- floating manage button -->
+<button id="floatingTokenBtn" class="floating-token-btn" title="Manage token">🔑 Token</button>
+
+<!-- Toast container -->
+<div id="toastContainer"></div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'recruiter_dashboard.js' %}"></script>
+{% endblock %}

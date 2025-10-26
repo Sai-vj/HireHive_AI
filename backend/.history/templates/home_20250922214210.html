@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Home · HireHive{% endblock %}
+
+{% block content %}
+<section class="hero py-5">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-6">
+        <h1 class="display-5 fw-bold">Build your career — smarter with AI</h1>
+        <p class="lead text-muted">Resume suggestions, role-based dashboards, interview practice, and job tracking — all in one place.</p>
+        <div class="mt-4">
+          <!-- Always show guest view; navbar-auth.js will flip to Dashboard/Logout -->
+          <a class="btn btn-primary btn-lg me-2" href="{% url 'register' %}">Get Started</a>
+          <a class="btn btn-outline-secondary btn-lg" href="{% url 'login' %}">Login</a>
+        </div>
+        <div class="mt-3 small text-muted">
+          Already have account? <a href="{% url 'login' %}">Login</a>
+        </div>
+      </div>
+
+      <div class="col-lg-6 text-center d-none d-lg-block">
+        <div class="mock-card p-4 shadow rounded">
+          <img src="{% static 'img/hero.jpg' %}" alt="ai career" class="img-fluid rounded" style="max-height:320px;">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="py-5">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="card h-100 p-3 border-0 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">AI Resume Review</h5>
+            <p class="card-text text-muted">Auto suggestions to polish your resume and keyword-match for jobs.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card h-100 p-3 border-0 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Interview Practice</h5>
+            <p class="card-text text-muted">Mock interviews & coding questions tailored to your role.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card h-100 p-3 border-0 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Jobs & Notifications</h5>
+            <p class="card-text text-muted">Track applied jobs, recruiter messages, and news updates.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="py-5 bg-light">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0">Latest News</h4>
+      <a href="{% url 'news_list' %}" class="small">View all</a>
+    </div>
+    <div class="row">
+      {% for news in latest_news %}
+        <div class="col-md-4">
+          <div class="card mb-3">
+            <div class="card-body">
+              <h6 class="card-title">{{ news.title|truncatechars:60 }}</h6>
+              <p class="small text-muted">{{ news.published_at|date:"d M Y" }}</p>
+              <p class="card-text small text-muted">{{ news.summary|truncatechars:100 }}</p>
+              <a href="{% url 'news_detail' news.pk %}" class="stretched-link small">Read</a>
+            </div>
+          </div>
+        </div>
+      {% empty %}
+        <div class="col-12">
+          <p class="text-muted">No news yet.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,105 @@
+/* Base hero / look */
+.hero {
+  background: linear-gradient(120deg,#f0f7ff, #fbfbff);
+  padding-top:50px;
+  padding-bottom:50px;
+  border-radius: 14px;
+}
+
+/* Headline */
+.display-5 {
+  color: #0b1a4a;
+  line-height: 1.05;
+}
+
+/* Mock card / hero image container */
+.mock-card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(250,250,255,0.95));
+  border-radius: 18px;
+  padding: 18px;
+}
+
+/* Cards hover */
+.card {
+  border-radius: 12px;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(12,30,80,0.08);
+}
+
+/* Buttons */
+.btn-primary {
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-weight:600;
+  box-shadow: 0 6px 18px rgba(79,70,229,0.08);
+}
+.btn-outline-secondary {
+  border-radius: 10px;
+  padding: 10px 16px;
+}
+
+/* Feature card small shadow */
+.feature-card {
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(15,23,42,0.04);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.feature-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 18px 40px rgba(15,23,42,0.06);
+}
+
+/* Small stat pills used in hero */
+.stat-pill {
+  background: white;
+  border-radius: 999px;
+  padding: 8px 12px;
+  box-shadow: 0 6px 18px rgba(16,24,40,0.05);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+}
+
+/* CTA gradient block */
+.cta-gradient {
+  background: linear-gradient(90deg,#4f46e5, #ec4899);
+  border-radius: 14px;
+}
+
+/* Responsive tweaks */
+@media (max-width: 991px) {
+  .mock-card { display: block; margin: 0 auto; max-width: 520px; }
+  .display-5 { font-size: 2.1rem; }
+  .hero { padding-top: 36px; padding-bottom: 36px; }
+}
+
+/* Small helpers */
+.text-primary { color: #4f46e5 !important; }
+.small.text-muted a { color: #0b1a4a; text-decoration: underline; }
+
+/* Footer small tweak */
+footer { border-top: 1px solid rgba(10,20,40,0.03); }
+
+.hero {
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  color: white;
+}
+
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  
+  filter: brightness(0.45) blur(1px);
+  z-index: 1;
+}
+
+
+

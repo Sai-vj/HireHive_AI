@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Login · HireHive{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/auth.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrap py-5">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm rounded-lg auth-card p-4">
+          <h3 class="mb-3 text-center">Welcome back</h3>
+          <p class="text-muted small text-center mb-4">Login to access your dashboard</p>
+
+          <form method="post" id="loginForm" novalidate action="{% url 'login' %}">
+  {% csrf_token %}
+  <!-- redirect support -->
+  <input type="hidden" name="next" value="{{ request.GET.next|default_if_none:'' }}">
+
+  <div class="mb-3">
+    <label class="form-label small">Email or Username</label>
+    <input type="text" name="username" class="form-control form-control-lg" required>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label small">Password</label>
+    <div class="input-group">
+      <input type="password" name="password" class="form-control form-control-lg" id="password" required>
+      <button class="btn btn-outline-secondary" type="button" id="togglePwd">Show</button>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="form-check">
+      <input class="form-check-input" name="remember" type="checkbox" id="remember">
+      <label class="form-check-label small" for="remember">Remember me</label>
+    </div>
+    <a href="{% url 'password_reset' %}" class="small">Forgot?</a>
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-lg w-100">Login</button>
+</form>
+
+
+
+          <div class="text-center mt-3 small text-muted">
+            No account? <a href="{% url 'register' %}">Create one</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-5 d-none d-md-block">
+        <div class="auth-side p-4">
+          <h5>Why HireHive?</h5>
+          <ul class="small text-muted">
+            <li>AI Resume review</li>
+            <li>Interview practice</li>
+            <li>Role-based dashboards</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'utils.js' %}" defer></script>
+<script src="{% static 'js/auth.js' %}" defer></script>
+{% endblock %}

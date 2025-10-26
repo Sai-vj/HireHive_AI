@@ -1,0 +1,26 @@
+<!-- templates/interviews/fragments/invite_modal.html -->
+<div class="fixed inset-0 flex items-center justify-center z-50">
+  <div class="bg-white shadow-lg rounded w-96 p-4">
+    <h3 class="text-lg font-bold mb-2">Invite candidate — {{ interview.title }}</h3>
+
+    <form hx-post="{% url 'recruiter_invite_candidate' interview.id %}" hx-swap="outerHTML" class="space-y-2">
+      {% csrf_token %}
+      <div>
+        <label class="block text-sm">Candidate ID</label>
+        <input name="candidate_id" class="w-full border p-2" required />
+      </div>
+      <div>
+        <label class="block text-sm">Scheduled at</label>
+        <input name="scheduled_at" type="datetime-local" class="w-full border p-2" />
+      </div>
+      <div>
+        <label class="block text-sm">Message</label>
+        <textarea name="message" class="w-full border p-2" rows="3"></textarea>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" class="px-3 py-1 border rounded" hx-get="javascript:document.getElementById('modal-container').innerHTML='';">Close</button>
+        <button type="submit" class="px-3 py-1 bg-blue-600 text-white rounded">Send Invite</button>
+      </div>
+    </form>
+  </div>
+</div>

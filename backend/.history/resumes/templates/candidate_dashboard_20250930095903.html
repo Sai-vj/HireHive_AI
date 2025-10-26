@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Candidate Dashboard · HireHive{% endblock %}
+
+{% block extra_head %}
+
+<link rel="stylesheet" href="{% static 'candidate_dashboard.css' %}">
+<style>
+  /* minor overrides to align with base theme */
+  .sidebar { width:320px; max-width:36vw; }
+  .main { flex:1; min-width:0; }
+  .job-card { cursor:pointer; padding:12px; border-radius:8px; border:1px solid #ececec; margin-bottom:8px; background:#fff; }
+  .small-muted { color:#666; font-size:.95rem; }
+  .resume-card { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  #toastContainer{ position:fixed; right:18px; top:18px; z-index:12000; width:320px; }
+  .take-quiz-btn { border-radius:8px; padding:.45rem .7rem; min-width:110px; display:inline-flex; align-items:center; gap:8px; border:1px solid #2b7be4; color:#2b7be4; background:transparent; }
+  .take-quiz-btn.active { background: linear-gradient(180deg,#2b7be4,#1c5fc7); color:#fff; box-shadow:0 6px 18px rgba(43,123,228,0.12); }
+  .take-quiz-timer { display:inline-block; font-size:.82rem; padding:3px 8px; border-radius:999px; background:#fff; border:1px solid #e6e6e6; color:#222; min-width:44px; text-align:center; }
+  @media (max-width:800px) {
+    .sidebar { width:100%; order:2; }
+    .main { order:1; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<button class="btn btn-outline-primary btn-toggle-sidebar d-lg-none">
+  <i class="bi bi-list"></i> Menu
+</button>
+
+
+
+
+<div class="container py-3">
+  <div class="app-shell gap-3 mt-3">
+
+    <!-- LEFT sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header mb-3 d-flex align-items-center gap-2">
+        <div id="jwtAuthStatus" aria-hidden="true" class="fw-semibold"></div>
+        <div class="flex-grow-1"></div>
+      <div style="width:160px"> 
+        <button id="viewInvitesBtn" class="btn btn-primary w-100">View Invites</button> 
+      </div>
+
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0">Jobs</h5>
+        <div>
+          <button id="refreshJobs" class="btn btn-sm btn-outline-secondary">Refresh</button>
+        </div>
+      </div>
+
+      <div class="card upload-card mb-3 p-3">
+        <label class="form-label mb-1">Upload resume</label>
+        <input id="resumeFile" type="file" accept=".pdf,.doc,.docx" class="form-control form-control-sm" />
+        <div class="upload-row mt-2">
+          <button id="uploadBtn" class="btn btn-sm btn-primary">Upload</button>
+          <button id="refreshResumesBtn" class="btn btn-sm btn-outline-secondary">Refresh</button>
+        </div>
+        <div id="tokenStatus" class="small-muted mt-2"></div>
+      </div>
+
+      <div id="resumeList" class="mb-3" style="max-height:28vh; overflow:auto; padding:8px; border-radius:8px; background:#fff; border:1px solid #eee;">
+        <!-- resumes injected by JS -->
+      </div>
+
+      <div class="card p-2 bg-white" style="border:1px solid #eee;">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <small class="small-muted">My applications</small>
+          <div class="d-flex gap-2">
+            <button id="refreshMyAppsBtn" class="btn btn-sm btn-outline-secondary">Refresh</button>
+            <button id="exportMyAppsBtn" class="btn btn-sm btn-outline-dark">Export CSV</button>
+          </div>
+        </div>
+        <div id="myApplicationsList" style="max-height:22vh; overflow:auto; margin-top:8px;"></div>
+      </div>
+    </aside>
+
+    <!-- RIGHT main -->
+    <main class="main">
+      <div id="noJob" class="alert alert-secondary">Select a job to see details</div>
+
+      <div id="jobDetails" class="card p-3 mb-3 d-none" style="background:#fff; border:1px solid #eee;">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h4 id="selectedJobTitle" class="mb-0">Job title</h4>
+            <div id="jobMeta" class="small-muted">Company • Experience • Location</div>
+          </div>
+          <div class="d-flex gap-2">
+            <button id="showMatchesBtn" class="btn btn-sm btn-outline-primary">Matches</button>
+            <button id="showShortlistsBtn" class="btn btn-sm btn-outline-success">Shortlists</button>
+            <button id="refreshApplicationsBtn" class="btn btn-sm btn-outline-secondary">Applications</button>
+          </div>
+        </div>
+
+        <hr />
+
+        <section id="matchesSection" class="mb-3" style="display:none;">
+          <h6 class="mb-2">Matches</h6>
+          <div id="matchesList" class="list-group list-group-flush"></div>
+        </section>
+
+        <section id="applicationsSection" class="mb-3" style="display:none;">
+          <h6 class="mb-2">Applications</h6>
+          <div id="applicationsList" class="list-group list-group-flush"></div>
+        </section>
+
+        <section id="shortlistSection" class="mb-3" style="display:none;">
+          <h6 class="mb-2">Shortlist</h6>
+          <div id="shortlistList" class="list-group list-group-flush"></div>
+        </section>
+      </div>
+
+      <!-- Invites Section (inline) -->
+      <div id="invitesSection" class="card p-3 mb-3" style="background:#fff; border:1px solid #eee; display:none;">
+        <h6 class="mb-2">Your Invites</h6>
+        <div id="invitesList"></div>
+      </div>
+
+      <!-- Jobs list -->
+      <div id="jobsList" class="bg-white p-2" style="border-radius:8px; border:1px solid #eee; max-height:64vh; overflow:auto;">
+        <!-- job cards injected by JS -->
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Invite Modal -->
+<div class="modal fade" id="invitesModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Invites</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-3">
+        <div id="invitesModalAlert" class="alert d-none" role="alert"></div>
+        <div id="invitesListModal"><div class="text-muted small">Loading invites...</div></div>
+      </div>
+      <div class="modal-footer">
+        <button id="invitesModalClose" type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button id="invitesModalRefresh" type="button" class="btn btn-primary">Refresh</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Apply Modal -->
+<div id="applyModal" class="modal fade" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <form id="applyForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Apply for job</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label">Choose resume</label>
+            <select id="applyResumeSelect" class="form-select"></select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Message (optional)</label>
+            <textarea id="applyMessage" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="small-muted">Note: If apply fails, JS retries with FormData fallback.</div>
+        </div>
+        <div class="modal-footer">
+          <button id="applyCancelBtn" type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="applySubmitBtn" type="submit" class="btn btn-primary">Apply</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Attempts modal (kept simple & accessible) -->
+<div id="attempts-modal" class="d-none" role="dialog" aria-modal="true" aria-labelledby="attempts-modal-title" style="position:fixed;inset:0;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:99999">
+  <div style="width:900px;max-width:96%;background:#fff;border-radius:8px;padding:16px;border:1px solid #eee;max-height:80vh;overflow:auto;position:relative;margin:40px auto">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 id="attempts-modal-title" class="mb-0">Attempt history</h5>
+      <div><button id="attempts-modal-close" class="btn btn-sm btn-outline-secondary">Close</button></div>
+    </div>
+    <div id="attempts-loading" class="mt-3">Loading attempts…</div>
+    <div id="attempts-list" class="mt-3 d-none"></div>
+    <div class="mt-3 text-end"><button id="attempts-modal-ok" class="btn btn-primary">OK</button></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'candidate_dashboard.js' %}"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const userId = document.body.dataset.userId || '';
+    const jwtEl = document.getElementById('jwtAuthStatus');
+    const invitesBtn = document.getElementById('viewInvitesBtn');
+    if (!userId) {
+      if (jwtEl) { jwtEl.classList.add('not-logged-in'); jwtEl.textContent = 'Not logged in'; }
+      if (invitesBtn) invitesBtn.style.display = 'none';
+    } else {
+      if (jwtEl && jwtEl.textContent.trim()==='') jwtEl.textContent = 'Logged in';
+      if (invitesBtn) invitesBtn.style.display = '';
+    }
+
+    // tiny accessibility: focus first interactive element when opening apply modal
+    const applyModalEl = document.getElementById('applyModal');
+    if (applyModalEl) {
+      applyModalEl.addEventListener('shown.bs.modal', () => {
+        const sel = document.getElementById('applyResumeSelect');
+        if (sel) sel.focus();
+      });
+    }
+  });
+  
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const sb  = document.querySelector('.sidebar');          // <— was getElementById
+  const bd  = document.getElementById('sbBackdrop');
+  const btn = document.querySelector('.btn-toggle-sidebar');
+
+  if (!sb || !bd || !btn) return;
+
+  const openSB  = () => { sb.classList.add('is-open'); bd.classList.add('show'); document.body.style.overflow='hidden'; };
+  const closeSB = () => { sb.classList.remove('is-open'); bd.classList.remove('show'); document.body.style.overflow=''; };
+
+  btn.addEventListener('click', openSB);
+  bd.addEventListener('click', closeSB);
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeSB(); });
+
+  const mq = window.matchMedia('(min-width: 992px)');
+  mq.addEventListener('change', e => { if (e.matches) closeSB(); });
+});
+</script>
+
+
+{% endblock %}

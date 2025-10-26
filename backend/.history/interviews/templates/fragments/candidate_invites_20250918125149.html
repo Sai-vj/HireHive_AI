@@ -1,0 +1,14 @@
+{% for inv in invites %}
+  <div id="invite-{{ inv.id }}" class="border p-2 mb-2">
+    <div><strong>{{ inv.interview.title }}</strong></div>
+    <div>When: {{ inv.scheduled_at }}</div>
+    <div>Status: {{ inv.status }}</div>
+    <div class="mt-2">
+      <button hx-post="{% url 'candidate_invite_respond' inv.id %}" hx-vals='{"action":"accept"}' hx-target="#invite-{{ inv.id }}" hx-swap="outerHTML" class="px-2 bg-green-500 text-white">Accept</button>
+      <button hx-post="{% url 'candidate_invite_respond' inv.id %}" hx-vals='{"action":"decline"}' hx-target="#invite-{{ inv.id }}" hx-swap="outerHTML" class="px-2 bg-red-500 text-white">Decline</button>
+      <a href="{% url 'candidate_start_interview' inv.interview.id %}" class="ml-2 px-2 bg-blue-500 text-white">Start</a>
+    </div>
+  </div>
+{% empty %}
+  <div>No invites</div>
+{% endfor %}

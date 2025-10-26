@@ -1,0 +1,35 @@
+{% extends "frontend/base.html" %}
+{% block title %}Home - HireApp{% endblock %}
+{% block content %}
+<div class="text-center p-5 bg-light rounded shadow-sm">
+  <h1 class="fw-bold">Welcome to HireApp 🚀</h1>
+  <p class="lead">Your one-stop platform for Jobs, Interviews and Analytics</p>
+  {% if user.is_authenticated %}
+    <a href="{% url 'frontend:go_to_dashboard' %}" class="btn btn-primary btn-lg">Go to Dashboard</a>
+  {% else %}
+    <a href="{% url 'login' %}" class="btn btn-success btn-lg me-2">Login</a>
+    <a href="{% url 'register' %}" class="btn btn-outline-primary btn-lg">Register</a>
+  {% endif %}
+</div>
+
+<div class="row mt-5 g-4">
+  <div class="col-md-4">
+    <div class="card h-100 shadow-sm p-3">
+      <h5>💼 Apply Jobs</h5>
+      <p>Browse jobs and track your applications easily.</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100 shadow-sm p-3">
+      <h5>📝 Attend Interviews</h5>
+      <p>Quizzes and coding challenges to showcase your skills.</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100 shadow-sm p-3">
+      <h5>📊 Analytics</h5>
+      <p>Know your strengths and improve continuously.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

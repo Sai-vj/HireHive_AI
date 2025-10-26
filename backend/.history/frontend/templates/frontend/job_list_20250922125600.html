@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Jobs — MyApp{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Jobs</h2>
+    <a class="btn btn-primary" href="{% url 'frontend:home' %}">Back to home</a>
+  </div>
+
+  <!-- Optional: If you have server-side 'jobs' context, render them.
+       Otherwise the frontend JS will call /api/resumes/jobs/ and inject list into #jobsList -->
+  <div id="jobsList" class="list-group"></div>
+
+  <!-- If you want client-side details to open job detail url, keep #jobsList here -->
+</div>
+
+<script src="{% static 'j/candidate_dashboard.js' %}"></script>
+{% endblock %}

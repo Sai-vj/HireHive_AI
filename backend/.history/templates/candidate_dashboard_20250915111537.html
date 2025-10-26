@@ -1,0 +1,38 @@
+<!-- candidate_dashboard.html -->
+{% load static %}
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Candidate Dashboard</title>
+  <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+</head>
+<body>
+  <div id="app-root">
+    <h1>Candidate Dashboard</h1>
+    <div id="candidateContent">Loading...</div>
+  </div>
+
+  <script>
+    // example: front-end will fetch '/api/resumes/applications/my/' using token
+    async function loadCandidateData() {
+      const token = localStorage.getItem('token');
+      const el = document.getElementById('candidateContent');
+      if (!token) { el.innerText = 'No token — please login.'; return; }
+      try {
+        const res = await fetch('/api/resumes/applications/my/', {
+          headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' }
+        });
+        if (!res.ok) { el.innerText = 'Failed to fetch your applications: ' + res.status; return; }
+        const data = await res.json();
+        el.innerText = JSON.stringify(data, null, 2);
+      } catch (err) {
+        el.innerText = 'Network error';
+      }
+    }
+    loadCandidateData();
+
+  </script>
+  <script type="module" src="{% {% static '' %}   %}"
+</body>
+</html>

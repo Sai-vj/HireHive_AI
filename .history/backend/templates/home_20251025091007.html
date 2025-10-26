@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Home · HireHive{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/homepage_extra.css' %}">
+<style>
+  /* small in-template tweaks to match base theme */
+  .hero {
+    background: linear-gradient(135deg, rgba(79,70,229,0.06), rgba(236,72,153,0.03));
+    border-radius: 12px;
+  }
+  .mock-card { background: white; border-radius: 12px; }
+  .feature-card { border-radius: 12px; box-shadow: 0 8px 30px rgba(15,23,42,0.06); }
+  .stat-pill { background: white; border-radius: 999px; padding: 8px 12px; box-shadow: 0 6px 18px rgba(16,24,40,0.05); }
+  .cta-gradient { background: linear-gradient(90deg,var(--brand-1),var(--brand-2)); border-radius: 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- HERO -->
+<section class="hero py-5">
+  <div class="container">
+    <div class="row align-items-center gy-4">
+      <div class="col-lg-6">
+        <h1 class="display-5 fw-bold">Build your career — <span class="text-primary">smarter with AI</span></h1>
+        <p class="lead text-muted mt-3">Resume suggestions, role-based dashboards, interview practice, and job tracking — all in one place.</p>
+
+        <div class="mt-4 d-flex flex-wrap gap-2">
+          <a class="btn btn-primary btn-lg" href="{% url 'register' %}">Get Started</a>
+          <a class="btn btn-outline-secondary btn-lg" href="{% url 'login' %}">Login</a>
+        </div>
+
+        <div class="mt-4 d-flex gap-3 flex-wrap align-items-center text-muted small">
+          <div class="stat-pill d-flex align-items-center gap-2">
+            <span>👥</span>
+            <div>
+              <div class="fw-semibold">Trusted</div>
+              <div class="small text-muted">100+ companies</div>
+            </div>
+          </div>
+
+          <div class="stat-pill d-flex align-items-center gap-2">
+            <span>⚡</span>
+            <div>
+              <div class="fw-semibold">Faster hiring</div>
+              <div class="small text-muted">Avg. time-to-hire ↓ 30%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 small text-muted">
+          Already have an account? <a href="{% url 'login' %}">Login</a>
+        </div>
+      </div>
+
+      <div class="col-lg-6 text-center d-none d-lg-block">
+        <div class="mock-card p-4 shadow-sm">
+          <!-- replace src with real hero image when available -->
+          <img src="{% static '' %}/images/hirehive-hero.jpg" 
+     alt="HireHive hero" 
+     class="img-fluid rounded" 
+     style="max-height:360px; object-fit:cover; width:100%;" />
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="py-5">
+  <div class="container">
+    <div class="text-center mb-4">
+      <h6 class="text-uppercase text-primary fw-bold">Features</h6>
+      <h2 class="fw-bold">All you need to land the right job</h2>
+      <p class="text-muted small">From resume scoring to mock interviews — everything designed to make hiring simpler.</p>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="p-4 feature-card h-100 bg-white">
+          <div class="fs-2">🤖</div>
+          <h5 class="mt-3">AI Resume Review</h5>
+          <p class="text-muted small">Auto suggestions to polish your resume and keyword-match for jobs.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="p-4 feature-card h-100 bg-white">
+          <div class="fs-2">💡</div>
+          <h5 class="mt-3">Interview Practice</h5>
+          <p class="text-muted small">Mock interviews & coding questions tailored to your role.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="p-4 feature-card h-100 bg-white">
+          <div class="fs-2">📣</div>
+          <h5 class="mt-3">Jobs & Notifications</h5>
+          <p class="text-muted small">Track applied jobs, recruiter messages, and news updates.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LATEST NEWS -->
+<section class="py-5 bg-light">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0">Latest News</h4>
+      <a href="{% url 'news_list' %}" class="small">View all</a>
+    </div>
+
+    <div class="row g-3">
+      {% for news in latest_news %}
+        <div class="col-md-4">
+          <article class="card h-100">
+            <div class="card-body d-flex flex-column">
+              <h6 class="card-title">{{ news.title|truncatechars:70 }}</h6>
+              <p class="small text-muted mb-2">{{ news.published_at|date:"d M Y" }}</p>
+              <p class="card-text small text-muted mb-3">{{ news.summary|truncatechars:110 }}</p>
+              <div class="mt-auto">
+                <a href="{% url 'news_detail' news.pk %}" class="stretched-link small">Read</a>
+              </div>
+            </div>
+          </article>
+        </div>
+      {% empty %}
+        <div class="col-12">
+          <p class="text-muted">No news yet.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="py-5">
+  <div class="container">
+    <div class="cta-gradient text-white p-4 p-md-5 d-flex flex-column flex-md-row align-items-center justify-content-between gap-3">
+      <div>
+        <h4 class="fw-bold mb-1">Ready to build your dream career?</h4>
+        <p class="mb-0 small">Start with a free account — tailor your resume and practice interviews.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'register' %}" class="btn btn-light btn-lg">Create account</a>
+        <a href="{% url 'contact' %}" class="btn btn-outline-light btn-lg">Contact us</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

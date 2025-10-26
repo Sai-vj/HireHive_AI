@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Home · HireHive{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/home.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- HERO -->
+<section class="hero-section" style="--hero-url: url('{% static "images/heroimage.png" %}')">
+  <div class="hero-overlay"></div>
+
+  <div class="container position-relative">
+    <div class="row align-items-center gy-4">
+      <!-- LEFT: content -->
+      <div class="col-lg-6 text-white hero-left">
+        <h1 class="display-4 fw-bold hero-title">
+          Build your career — <span class="highlight">smarter with <strong>AI</strong></span>
+        </h1>
+
+        <p class="lead text-white-50 mt-3 hero-sub">
+          Resume suggestions, role-based dashboards, interview practice, and job tracking — all in one place.
+        </p>
+
+        <div class="mt-4 d-flex flex-wrap gap-2">
+          <a class="btn btn-primary btn-lg" href="{% url 'register' %}">Get Started</a>
+          <a class="btn btn-outline-light btn-lg" href="{% url 'login' %}">Login</a>
+        </div>
+
+        <div class="mt-4 d-flex gap-3 flex-wrap align-items-center text-muted small">
+          <div class="stat-pill bg-white text-dark d-flex align-items-center gap-2">
+            <span class="stat-emoji">👥</span>
+            <div>
+              <div class="fw-semibold">Trusted</div>
+              <div class="small text-muted">100+ companies</div>
+            </div>
+          </div>
+
+          <div class="stat-pill bg-white text-dark d-flex align-items-center gap-2">
+            <span class="stat-emoji">⚡</span>
+            <div>
+              <div class="fw-semibold">Faster hiring</div>
+              <div class="small text-muted">Avg time-to-hire ↓ 30%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: mock image card -->
+      <div class="col-lg-6 text-center d-none d-lg-block">
+        <div class="mock-card p-4 shadow-sm">
+          <!-- primary mock / decorative image on right -->
+          <img src="{% static 'images/heroimage.png' %}"
+               alt="Hero image"
+               class="img-fluid rounded shadow-lg hero-mock" />
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="py-5 features-section">
+  <div class="container">
+    <div class="text-center mb-4">
+      <h6 class="text-uppercase text-primary fw-bold">Features</h6>
+      <h2 class="fw-bold">All you need to land the right job</h2>
+      <p class="text-muted small">From resume scoring to mock interviews — everything designed to make hiring simpler.</p>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="p-4 feature-card h-100 bg-white">
+          <div class="fs-2">🤖</div>
+          <h5 class="mt-3">AI Resume Review</h5>
+          <p class="text-muted small">Auto suggestions to polish your resume and keyword-match for jobs.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="p-4 feature-card h-100 bg-white">
+          <div class="fs-2">💡</div>
+          <h5 class="mt-3">Interview Practice</h5>
+          <p class="text-muted small">Mock interviews & coding questions tailored to your role.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="p-4 feature-card h-100 bg-white">
+          <div class="fs-2">📣</div>
+          <h5 class="mt-3">Jobs & Notifications</h5>
+          <p class="text-muted small">Track applied jobs, recruiter messages, and news updates.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="py-5">
+  <div class="container">
+    <div class="cta-gradient text-white p-4 p-md-5 d-flex flex-column flex-md-row align-items-center justify-content-between gap-3">
+      <div>
+        <h4 class="fw-bold mb-1">Ready to build your dream career?</h4>
+        <p class="mb-0 small">Start with a free account — tailor your resume and practice interviews.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'register' %}" class="btn btn-light btn-lg">Create account</a>
+        <a href="{% url 'contact' %}" class="btn btn-outline-light btn-lg">Contact us</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

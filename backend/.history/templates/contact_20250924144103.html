@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Contact · HireHive{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <h2>Contact Us</h2>
+  <p class="text-muted">Send queries or feedback — we'll get back soon.</p>
+
+  <div class="row">
+    <div class="col-md-6">
+      <h5>Email</h5>
+      <p>support@Hirehive.local</p>
+
+      <h5>Phone</h5>
+      <p>+91 98765 43210</p>
+    </div>
+
+    <div class="col-md-6">
+      <h5>Send us a message</h5>
+
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="alert alert-{{ msg.tags }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Your name</label>
+          {{ form.name }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          {{ form.email }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Message</label>
+          {{ form.message }}
+        </div>
+        <button type="submit" class="btn btn-primary">Send</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

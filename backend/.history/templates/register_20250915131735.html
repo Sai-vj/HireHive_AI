@@ -1,0 +1,57 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Register — App</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f7fafc; }
+    .card { max-width:720px; margin:48px auto; border-radius:12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card p-4">
+      <h3 class="mb-3">Create an account</h3>
+
+      <form id="registerForm">
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label">Username</label>
+            <input id="username" class="form-control" required />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input id="email" type="email" class="form-control" required />
+          </div>
+        </div>
+
+        <div class="row g-2 mt-2">
+          <div class="col-md-6">
+            <label class="form-label">Password</label>
+            <input id="password" type="password" class="form-control" required />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Role</label>
+            <select id="role" class="form-select">
+              <option value="student">Candidate</option>
+              <option value="recruiter">Recruiter</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          <button id="registerBtn" class="btn btn-primary">Register</button>
+          <a class="btn btn-outline-secondary" href="{% url 'login_page' %}">Back to Login</a>
+        </div>
+      </form>
+
+      <div id="regMsg" class="small text-muted mt-3"></div>
+    </div>
+  </div>
+
+<script type="module" src="{% static 'js/register.js' %}"></script>
+</body>
+</html>

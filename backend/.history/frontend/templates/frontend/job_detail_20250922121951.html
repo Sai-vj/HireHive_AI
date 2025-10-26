@@ -1,0 +1,16 @@
+{% extends "frontend/base.html" %}
+{% block content %}
+<div id="jobDetail">Loading job...</div>
+<script>
+(async function(){
+  const jobId = '{{ job_id }}';
+  const wrap = document.getElementById('jobDetail');
+  try {
+    const r = await fetch(`/api/resumes/jobs/${jobId}/`);
+    if(!r.ok){ wrap.innerHTML = '<div class="text-muted">Job not found</div>'; return; }
+    const j = await r.json();
+    wrap.innerHTML = `<h3>${j.title||'Job'}</h3><p class="text-muted">${j.company||''}</p><div style="white-space:pre-wrap">${j.description||j.summary||''}</div>`;
+  } catch(e){ wrap.innerHTML = '<div class="text-danger">Error loading</div>'; }
+})();
+</script>
+{% endblock %}

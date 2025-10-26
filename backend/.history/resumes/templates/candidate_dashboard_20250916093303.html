@@ -1,0 +1,128 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Candidate Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'candidate_dashboard.css' %}">
+  <style>
+    /* quick safety so page doesn't flash huge spinner if script hasn't run yet */
+    #globalSpinner { display:none; }
+  </style>
+</head>
+<body>
+<div class="container my-3">
+
+  <!-- Spinner overlay (JS will ensure this exists or reuse) -->
+  <div id="globalSpinner">
+    <div>
+      <div class="spinner-border text-primary" role="status"></div>
+      <div id="globalSpinnerText">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Page title -->
+  <h1 class="mb-4 display-6">Candidate Dashboard</h1>
+
+  <!-- Token input -->
+  <div class="mb-4">
+    <label class="form-label">Bearer token (paste your JWT access token)</label>
+    <input id="tokenInput" class="form-control" placeholder="Paste token here">
+    <div class="form-text">Token stored locally (demo only). <span id="tokenStatus" class="small-muted"></span></div>
+    <button id="saveTokenBtn" class="btn btn-primary mt-2">Save token</button>
+  </div>
+
+  <!-- Layout row -->
+  <div class="row g-4">
+    <!-- Upload resume section -->
+    <div class="col-md-4">
+      <div class="card p-3">
+        <h5 class="mb-3">Upload Resume</h5>
+        <input type="file" id="resumeFile" class="form-control mb-2" accept=".pdf,.doc,.docx">
+        <button id="uploadBtn" class="btn btn-success w-100">Upload</button>
+        <hr>
+        <h6>Your Resumes</h6>
+        <div id="resumeList" class="small-muted">No resumes uploaded yet.</div>
+      </div>
+    </div>
+
+    <!-- Jobs section -->
+    <div class="col-md-8">
+      <div class="card p-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="mb-0">Jobs</h5>
+          <div class="d-flex gap-2">
+            <button id="refreshJobs" class="btn btn-outline-secondary btn-sm">Refresh Jobs</button>
+            <!-- optional buttons, JS wires these if present -->
+            <button id="showMatchesBtn" class="btn btn-outline-primary btn-sm" style="display:none;">Show Matches</button>
+            <button id="showShortlistsBtn" class="btn btn-outline-secondary btn-sm" style="display:none;">Show Shortlists</button>
+          </div>
+        </div>
+
+        <div id="jobsList" class="list-group mb-3"></div>
+
+        <!-- Matches -->
+        <div id="matchesSection" style="display:none;">
+          <h6 class="mb-2" id="selectedJobTitle">Job Matches</h6>
+          <div id="matchesList"></div>
+        </div>
+
+        <!-- Shortlist area (hidden until used) -->
+        <div id="shortlistSection" style="display:none;margin-top:.75rem;">
+          <h6 class="mb-2">Shortlists</h6>
+          <div id="shortlistList"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toastContainer" style="position:fixed; right:20px; bottom:20px; z-index:4000;"></div>
+</div>
+
+<!-- Confirm modal (used by showConfirm) -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">Are you sure?</div>
+      <div class="modal-footer">
+        <button type="button" id="confirmCancelBtn" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="confirmOkBtn" class="btn btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Candidate: My Applications panel -->
+<div class="card p-3 mt-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h5 class="mb-0">My Applications</h5>
+    <div>
+      <button id="refreshMyAppsBtn" class="btn btn-sm btn-outline-primary">Refresh</button>
+      <button id="exportMyAppsBtn" class="btn btn-sm btn-outline-secondary">Export CSV</button>
+    </div>
+  </div>
+  <div id="myApplicationsList" style="max-height:50vh; overflow:auto;">
+    <div class="small-muted">No applications loaded.</div>
+  </div>
+</div>
+<!-- REPLACED WITH: Apply + Take Quiz + Retake + status -->
+<button id="take-quiz-{{job.id}}" class="btn btn-outline" onclick="openQuizModal({{job.id}}, onQuizSubmit)">Take Quiz</button>
+<button id="apply-btn-{{job.id}}" class="btn btn-primary disabled" disabled>Apply</button>
+<button id="retake-btn-{{job.id}}" class="btn btn-secondary" style="display:none;" onclick="openQuizModal({{job.id}}, onQuizSubmit)">Retake</button>
+<span id="quiz-status-{{job.id}}" class="small text-muted" style="margin-left:8px;">Not attempted</span>
+
+
+<!-- Bootstrap JS first (so bootstrap.Modal exists) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Candidate dashboard JS (cache-bust param optional) -->
+< <script type="module" src="{% static 'candidate_dashboard.js'   %}? v=1"></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{% for inv in invites %}
+<a class="btn btn-sm btn-primary"
+   href="{% url 'start_interview_attempt_frontend' inv.interview.id %}">
+   Start
+</a>
+  <div id="invite-{{ inv.id }}" class="border p-2 mb-2">
+    <div><strong>{{ inv.interview.title }}</strong></div>
+    <div>When: {{ inv.scheduled_at }}</div>
+    <div>Status: <span class="badge bg-{{ inv.status == 'pending' and 'warning' or inv.status == 'accepted' and 'success' or 'secondary' }}">{{ inv.status }}</span></div>
+    <div class="mt-2">
+      <button class="btn btn-sm btn-success"
+        hx-post="{% url 'candidate_invite_respond' inv.id %}"
+        hx-vals='{"action":"accept"}'
+        hx-target="#invite-{{ inv.id }}"
+        hx-swap="outerHTML">Accept</button>
+
+      <button class="btn btn-sm btn-danger"
+        hx-post="{% url 'candidate_invite_respond' inv.id %}"
+        hx-vals='{"action":"decline"}'
+        hx-target="#invite-{{ inv.id }}"
+        hx-swap="outerHTML">Decline</button>
+
+      <a class="btn btn-sm btn-primary"
+         href="{% url 'start_interview_attempt_frontend' inv.interview.id %}">Start</a>
+    </div>
+  </div>
+{% empty %}
+  <div class="small-muted">No invites</div>
+{% endfor %}

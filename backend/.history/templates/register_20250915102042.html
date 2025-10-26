@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Register — App</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f7fafc; }
+    .card { max-width:720px; margin:48px auto; border-radius:12px; }
+    .role-btn.active { box-shadow:0 4px 14px rgba(60,64,67,.08); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card p-4">
+      <h3 class="mb-3">Create an account</h3>
+
+      <form id="registerForm" class="mb-3">
+        <div class="mb-2">
+          <label class="form-label">Username</label>
+          <input id="username" class="form-control" required>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label">Email</label>
+          <input id="email" type="email" class="form-control" required>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label">Password</label>
+          <input id="password" type="password" class="form-control" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label d-block">Role</label>
+          <div class="btn-group" role="group" aria-label="role">
+            <input type="radio" class="btn-check" name="role" id="roleStudent" value="student" autocomplete="off" checked>
+            <label class="btn btn-outline-primary role-btn" for="roleStudent">Candidate</label>
+
+            <input type="radio" class="btn-check" name="role" id="roleRecruiter" value="recruiter" autocomplete="off">
+            <label class="btn btn-outline-primary role-btn" for="roleRecruiter">Recruiter</label>
+          </div>
+          <div class="form-text">Choose Candidate if you will upload resumes and apply, otherwise Recruiter.</div>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button id="registerBtn" class="btn btn-primary">Register</button>
+          <a href="/login./" class="btn btn-outline-secondary">Already have an account? Login</a>
+        </div>
+      </form>
+
+      <div id="msg" class="small text-muted"></div>
+    </div>
+  </div>
+
+<script>
+/* --- backend endpoints (set to your project's routes) --- */
+const REGISTER_URL = '/api/accounts/register/'; // register view you added
+const AUTO_LOGIN_AFTER_REGISTER = true;         // will auto-login and redirect after registering
+
+// LOGIN_URL: JWT token endpoint for login. Update if your project uses a different path.
+const LOGIN_URL = '/api/token/'; // expected to return { access, refresh } or similar
+
+// PROFILE_URL: returns user info including profile.role
+const PROFILE_URL = '/api/accounts/profile/';
+
+function showMsg(text, type='muted', timeout=3500) {
+  const el = document.getElementById('msg');
+  el.className = 'small text-' + (type === 'error' ? 'danger' : (type === 'success' ? 'success' : 'muted'));
+  el.innerText = text;
+  if (timeout) setTimeout(()=>{ el.innerText = ''; }, timeout);
+}
+
+function getSelectedRole() {
+  const el = document.querySelector('input[name="role"]:checked');
+  return el ? el.value : 'student';
+}
+
+async function registerUser(payload) {
+  try {
+    const res = await fetch(REGISTER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(()=>null);
+    return { ok: res.ok, status: res.status, data };
+  } catch (e) {
+    console.error(e);
+    return { ok:false, error: e };
+  }
+}
+
+async function loginAndRedirect(username, password) {
+  try {
+    const resp = await fetch(LOGIN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const body = await resp.json().catch(()=>null);
+    if (!resp.ok) {
+      showMsg(body?.detail || `Login failed (${resp.status})`, 'error', 6000);
+      return;
+    }
+
+    // Accept common shapes: { access: '...', refresh: '...' } or { token: '...' }
+    const token = body?.access || body?.token || body?.access_token || null;
+    if (!token) {
+      showMsg('Login succeeded but token not found. Check LOGIN_URL.', 'error', 6000);
+      return;
+    }
+
+    localStorage.setItem('token', token);
+    await fetchProfileAndRedirect();
+  } catch (e) {
+    console.error(e);
+    showMsg('Login error', 'error', 4000);
+  }
+}
+
+function parseJwtPayload(token) {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(decodeURIComponent(escape(json)));
+  } catch (e) {
+    return null;
+  }
+}
+
+async function fetchProfileAndRedirect() {
+  const token = localStorage.getItem('token');
+  if (!token) { window.location.href = '/accounts/login/'; return; }
+
+  try {
+    const res = await fetch(PROFILE_URL, { headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' } });
+    if (res.ok) {
+      const profile = await res.json();
+      const role = profile?.role || (profile?.profile && profile.profile.role) || null;
+      routeByRole(role);
+      return;
+    }
+    const payload = parseJwtPayload(token);
+    if (payload && payload.role) { routeByRole(payload.role); return; }
+    routeByRole('student');
+  } catch (e) {
+    console.warn('profile fetch error', e);
+    const payload = parseJwtPayload(token);
+    routeByRole(payload?.role || 'student');
+  }
+}
+
+function routeByRole(role) {
+  if (role === 'recruiter') {
+    window.location.href = '/resumes/recruiter_dashboard/';
+  } else {
+    window.location.href = '/resumes/candidate_dashboard/';
+  }
+}
+
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const role = getSelectedRole();
+
+  if (!username || !email || !password) { showMsg('Fill all fields', 'error'); return; }
+
+  document.getElementById('registerBtn').disabled = true;
+  showMsg('Registering...', 'muted');
+
+  const result = await registerUser({ username, email, password, role });
+  if (!result.ok) {
+    const detail = result.data?.detail || result.data || 'Register failed';
+    showMsg(detail, 'error', 6000);
+    document.getElementById('registerBtn').disabled = false;
+    return;
+  }
+
+  showMsg('Registered successfully', 'success', 2500);
+
+  if (AUTO_LOGIN_AFTER_REGISTER) {
+    await loginAndRedirect(username, password);
+  } else {
+    setTimeout(()=> window.location.href = '/accounts/login/', 900);
+  }
+});
+</script>
+</body>
+</html>

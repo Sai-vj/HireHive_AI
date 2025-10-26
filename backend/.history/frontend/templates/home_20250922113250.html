@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Welcome - HireApp{% endblock %}
+{% block content %}
+<style>
+  .hero {
+    background: linear-gradient(135deg, #007bff 0%, #6610f2 100%);
+    color: #fff;
+    border-radius: 12px;
+    padding: 60px 40px;
+    margin-bottom: 40px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  }
+  .hero h1 { font-weight: 700; font-size: 2.5rem; }
+  .hero p { font-size: 1.1rem; margin-top: 10px; }
+  .features { margin: 40px 0; }
+  .feature-card {
+    background: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform .2s;
+  }
+  .feature-card:hover { transform: translateY(-4px); }
+  .feature-icon {
+    font-size: 2rem;
+    color: #007bff;
+    margin-bottom: 12px;
+  }
+  .cta-section {
+    text-align: center;
+    padding: 50px 20px;
+    background: #f1f4f9;
+    border-radius: 12px;
+    margin-top: 40px;
+  }
+  .cta-section h3 { font-weight: 600; margin-bottom: 20px; }
+</style>
+
+<!-- Hero -->
+<div class="hero text-center">
+  <h1>Welcome to HireApp 🚀</h1>
+  <p>Your complete platform to apply jobs, attend quizzes, and get shortlisted faster.</p>
+  <div class="mt-3">
+    {% if user.is_authenticated %}
+      <a class="btn btn-light btn-lg" href="{% url 'frontend:go_to_dashboard' %}">Go to Dashboard</a>
+    {% else %}
+      <a class="btn btn-light btn-lg" href="{% url 'login' %}?next={% url 'frontend:go_to_dashboard' %}">Login</a>
+      <a class="btn btn-outline-light btn-lg" href="{% url 'register' %}">Register</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Features -->
+<div class="features row g-4">
+  <div class="col-md-4">
+    <div class="feature-card">
+      <div class="feature-icon">💼</div>
+      <h5>Job Applications</h5>
+      <p>Browse and apply to jobs easily. Upload your resume and track your applications.</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="feature-card">
+      <div class="feature-icon">📝</div>
+      <h5>Smart Interviews</h5>
+      <p>Take online quizzes & coding challenges. Automated scoring helps recruiters decide faster.</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h5>Analytics</h5>
+      <p>Get insights about your attempts and performance. Know where you stand in the process.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Call to Action -->
+<div class="cta-section">
+  <h3>Ready to start your journey?</h3>
+  <p class="text-muted">Login or Register now to explore jobs and attend interviews.</p>
+  {% if user.is_authenticated %}
+    <a class="btn btn-primary btn-lg" href="{% url 'frontend:go_to_dashboard' %}">Go to Dashboard</a>
+  {% else %}
+    <a class="btn btn-success btn-lg me-2" href="{% url 'login' %}?next={% url 'frontend:go_to_dashboard' %}">Login</a>
+    <a class="btn btn-outline-primary btn-lg" href="{% url 'register' %}">Register</a>
+  {% endif %}
+</div>
+{% endblock %}

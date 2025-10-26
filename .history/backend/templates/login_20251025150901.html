@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Login · HireHive{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/auth.css' %}">
+<style>
+  .auth-wrap { min-height: calc(100vh - 180px); display:flex; align-items:center; }
+  .auth-card { border-radius:12px; box-shadow:0 12px 40px rgba(12,30,80,0.06); }
+  .auth-side { background: linear-gradient(180deg,#f8fafc, #ffffff); border-radius:12px; height:100%; }
+  .form-control:focus { box-shadow: 0 6px 18px rgba(79,70,229,0.06); border-color: #4f46e5; }
+  .btn-primary { border-radius:10px; font-weight:600; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrap py-5">
+  <div class="container">
+    <div class="row justify-content-center gx-4">
+      <div class="col-md-7 col-lg-6">
+        <div class="card auth-card p-4">
+          <div class="text-center mb-3">
+            <div style="width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#ec4899);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700">HH</div>
+          </div>
+
+          <h3 class="mb-1 text-center">Welcome back</h3>
+          <p class="text-muted small text-center mb-4">Login to access your dashboard</p>
+
+          <form method="post" id="loginForm" novalidate action="" role="form" autocomplete="on">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.GET.next|default_if_none:'' }}">
+
+            <div id="msg" aria-live="polite" class="mb-3"></div>
+
+            <div class="mb-3">
+              <label for="username" class="form-label small">Email or Username</label>
+              <input id="username" type="text" name="username" class="form-control form-control-lg" required
+                     autocomplete="username" inputmode="email" aria-label="Email or username">
+            </div>
+
+            <div class="mb-3">
+  <label for="password" class="form-label small">Password</label>
+
+  <div class="input-group">
+    <input id="password" type="password" class="form-control" />
+
+    <button type="button" id="togglePwd" class="btn btn-outline-secondary">
+      <i class="bi bi-eye-slash" id="pwdIcon"></i>
+    </button>
+  </div>
+
+  <div id="pwdMessage" class="form-text mt-1" aria-live="polite"></div>
+</div>
+
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="form-check">
+                <input class="form-check-input" name="remember" type="checkbox" id="remember" autocomplete="off">
+                <label class="form-check-label small" for="remember">Remember me</label>
+              </div>
+              <a href="{% url 'password_reset' %}" class="small">Forgot?</a>
+            </div>
+
+            <button id="loginBtn" type="submit" class="btn btn-primary btn-lg w-100">Login</button>
+          </form>
+
+          <div class="text-center mt-3 small text-muted">
+            No account? <a href="{% url 'register' %}">Create one</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-5 col-lg-4 d-none d-md-block">
+        <div class="auth-side p-4 h-100 d-flex flex-column justify-content-center">
+          <h5 class="mb-2">Why HireHive?</h5>
+          <ul class="small text-muted mb-0">
+            <li>AI Resume review</li>
+            <li>Interview practice</li>
+            <li>Role-based dashboards</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'login.js' %}" defer></script>
+
+<script defer>
+  document.addEventListener('DOMContentLoaded', () => {
+    const toggle = document.getElementById('togglePwd');
+    const pwd = document.getElementById('password');
+    if (toggle && pwd) {
+      toggle.addEventListener('click', () => {
+        const isPwd = pwd.type === 'password';
+        pwd.type = isPwd ? 'text' : 'password';
+        toggle.innerText = isPwd ? 'Hide' : 'Show';
+        toggle.setAttribute('aria-pressed', String(!isPwd));
+      });
+    }
+  });
+</script>
+{% endblock %}

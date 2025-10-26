@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Job detail{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <a href="{% url 'frontend:jobs_list' %}" class="btn btn-sm btn-outline-secondary mb-3">← Back to jobs</a>
+
+  <div class="card p-3">
+    <h4>{{ job.title }}</h4>
+    <div class="small-muted mb-2">{{ job.company }}</div>
+    <div style="white-space:pre-wrap">{{ job.description }}</div>
+  </div>
+</div>
+{% endblock %}

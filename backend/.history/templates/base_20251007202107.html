@@ -1,0 +1,113 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}HireHive{% endblock %}</title>
+
+  <!-- Google font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+
+  <!-- favicon -->
+  <link rel="icon" href="{% static 'favicon.ico' %}" />
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'favicons/favicon-32x32.png' %}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{% static 'favicons/favicon-16x16.png' %}">
+
+  <!-- Apple touch (iOS homescreen) -->
+  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'favicons/apple-touch-icon.png' %}">
+
+  <!-- Optional: theme color for mobile browsers -->
+  <meta name="theme-color" content="#2dd4bf">
+
+  <!-- custom css -->
+  <link rel="stylesheet" href="{% static 'css/home.css' %}">
+
+  {% block extra_head %}{% endblock %}
+  <style>
+    :root{
+      --brand-1: #4f46e5; /* indigo-600 */
+      --brand-2: #ec4899; /* pink-500 */
+      --muted: #6b7280;
+    }
+    body { font-family: 'Poppins', sans-serif; background: #f6f8fb; color: #111827; }
+
+    /* Navbar tweaks */
+    .hirehive-logo { font-weight:700; letter-spacing:0.2px; color:var(--brand-1); }
+    .hero-gradient { background: linear-gradient(135deg, rgba(79,70,229,0.08), rgba(236,72,153,0.06)); }
+
+    /* CTA card */
+    .cta-card { border-radius: 16px; }
+
+    /* small helpers */
+    .feature-card { border-radius: 12px; box-shadow: 0 6px 20px rgba(16,24,40,0.06); }
+  </style>
+</head>
+<body
+  {% if user.is_authenticated %} data-user-id="{{ user.id }}" {% endif %}
+  class="">
+
+
+  <nav class="navbar navbar-expand-lg navbar-white bg-white shadow-sm">
+  <div class="container-fluid">
+
+      <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'home' %}">
+        <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--brand-1),var(--brand-2));display:flex;align-items:center;justify-content:center;color:white;font-weight:700">HH</div>
+        <div class="ms-2">
+          <div class="hirehive-logo">HireHive</div>
+          <div class="small text-muted" style="margin-top:-4px">Smart hiring, human touch</div>
+        </div>
+      </a>
+
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu"
+              aria-controls="navMenu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navMenu">
+        <ul class="navbar-nav ms-auto align-items-center">
+          <li class="nav-item"><a class="nav-link" href="{% url 'home' %}">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'news_list' %}">News</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'contact' %}">Contact</a></li>
+          {% block nav_actions %}{% endblock %}
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  {% if messages %}
+  <div class="container mt-3">
+    {% for msg in messages %}
+      <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
+        {{ msg }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="py-4 bg-white mt-5 shadow-sm">
+    <div class="container text-center small text-muted">
+      © 2025 HireHive • All rights reserved
+    </div>
+  </footer>
+
+  <!-- utils + common scripts -->
+  <script type="module" src="{% static 'utils.js' %}" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
+  <script type="module" src="{% static 'navbar-auth.js' %}" defer></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

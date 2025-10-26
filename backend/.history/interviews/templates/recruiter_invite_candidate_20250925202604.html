@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Invite Candidate - Recruiter{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <h3>Invite Candidate</h3>
+  <div class="card p-3">
+    <form id="inviteForm">
+      <div class="mb-3">
+        <label class="form-label">Job</label>
+        <select id="jobSelect" class="form-select" required>
+          <option value="">— select job —</option>
+          {% for j in jobs %}
+            <option value="{{ j.id }}">{{ j.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Candidate User ID (optional)</label>
+        <input id="candidate_id" class="form-control" placeholder="123 or leave blank to use resume_id" />
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Resume ID (optional)</label>
+        <input id="resume_id" class="form-control" placeholder="resume id" />
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Scheduled At (ISO UTC)</label>
+        <input id="scheduled_at" class="form-control" placeholder="2025-09-25T10:00:00Z" />
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Message</label>
+        <textarea id="message" class="form-control" rows="3">You are invited for interview</textarea>
+      </div>
+
+      <button class="btn btn-primary" id="inviteBtn">Send Invite</button>
+      <span id="inviteMsg" class="ms-3"></span>
+    </form>
+  </div>
+</div>
+{% endblock %}
+<script src="{% static 'resumesrecruiter_dashboard.js' %}"></script>
+
+
+{% block extra_js %}
+<script>
+(function(){
+  function getCookie(name){ const v = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)'); return v ? v.pop() : ''; }
+  function buildHeaders(){ const h={'Content-Type':'application/json'}; const token = localStorage.getItem('access_token'); if(token) h['Authorization']='Bearer '+token; else h['X-CSRFToken']=getCookie('csrftoken'); return h; }
+
+  document.getElementById('inviteForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const job = document.getElementById('jobSelect').value;
+    if(!job){ document.getElementById('inviteMsg').textContent='Select job'; return; }
+    const payload = {
+      scheduled_at: document.getElementById('scheduled_at').value || null,
+      message: document.getElementById('message').value || 'You are invited for interview'
+    };
+    const cid = document.getElementById('candidate_id').value.trim();
+    const rid = document.getElementById('resume_id').value.trim();
+    if(cid) payload.candidate_id = cid;
+    if(rid) payload.resume_id = rid;
+
+    try {
+      document.getElementById('inviteBtn').disabled = true;
+      const res = await fetch(`/api/interviews/recruiter/${job}/invite/`, {
+        method:'POST', credentials:'include', headers: buildHeaders(), body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if(res.ok){ document.getElementById('inviteMsg').textContent = 'Invite sent'; }
+      else { document.getElementById('inviteMsg').textContent = (data && (data.detail||JSON.stringify(data))) || 'Failed'; }
+    } catch(err){
+      console.error(err); document.getElementById('inviteMsg').textContent='Network error';
+    } finally { document.getElementById('inviteBtn').disabled = false; }
+  });
+})();
+</script>
+{% endblock %}

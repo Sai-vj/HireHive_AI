@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Interview</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>body{padding:20px;background:#f6f7fb;font-family:Inter,system-ui,Roboto,Arial}</style>
+</head>
+<body>
+  <div class="container">
+    <div id="interviewCard" class="card p-4">
+      <h3 id="interviewTitle">Interview</h3>
+      <div id="interviewMeta" class="small-muted mb-2"></div>
+      <div id="interviewDescription" style="white-space:pre-wrap;margin-bottom:12px"></div>
+      <div id="interviewActions" class="mb-3">
+        <button id="startBtn" class="btn btn-primary">Start Interview</button>
+        <button id="resumeBtn" class="btn btn-outline-secondary d-none">Resume</button>
+      </div>
+
+      <div id="interviewContent" style="display:none"></div>
+    </div>
+  </div>
+
+<script>
+(async function(){
+  // determine id from URL path: expects /interviews/candidate/<id>/
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  const id = pathParts[pathParts.length-1] || new URLSearchParams(location.search).get('id') || null;
+  if (!id) { document.getElementById('interviewCard').innerText = 'Missing interview id in URL'; return; }
+
+  const token = localStorage.getItem('token') || '';
+  function headers() {
+    const h = {'Content-Type':'application/json'};
+    if (token) h['Authorization'] = 'Bearer ' + token;
+    return h;
+  }
+
+  async function fetchInterview() {
+    const r = await fetch(`/api/interviews/candidate/${id}/`, { method:'GET', headers: headers() });
+    if (!r.ok) {
+      const txt = await r.text().catch(()=>null);
+      document.getElementById('interviewCard').innerHTML = `<div class="text-danger">Failed to load interview: ${r.status} ${txt||''}</div>`;
+      return null;
+    }
+    const j = await r.json().catch(()=>null) || {};
+    document.getElementById('interviewTitle').textContent = j.title || `Interview ${id}`;
+    document.getElementById('interviewMeta').textContent = `Scheduled: ${j.scheduled_at || '—'} • Duration: ${j.duration_minutes || '—'} mins • Mode: ${j.mode || '—'}`;
+    document.getElementById('interviewDescription').textContent = j.description || j.instructions || '';
+    // if interview already started, show Resume button
+    if (j.started || j.attempt_open) {
+      document.getElementById('resumeBtn').classList.remove('d-none');
+    }
+    return j;
+  }
+
+  async function startAttempt() {
+    const btn = document.getElementById('startBtn');
+    btn.disabled = true; btn.textContent = 'Starting…';
+    try {
+      const r = await fetch(`/api/interviews/candidate/${id}/start/`, { method: 'POST', headers: headers() });
+      const txt = await r.text().catch(()=>null);
+      let j = null;
+      try { j = txt ? JSON.parse(txt) : null } catch(e){ j = null; }
+      if (!r.ok) {
+        alert('Start failed: ' + (j?.detail || r.status));
+        btn.disabled = false; btn.textContent = 'Start Interview';
+        return;
+      }
+      // server should return attempt details or quiz payload
+      const attemptId = j?.attempt_id || j?.id || j?.attempt || null;
+      if (attemptId) {
+        // navigate to attempt page (adjust if your app differs)
+        window.location.href = `/interviews/attempt/${attemptId}/`;
+        return;
+      }
+      if (j?.questions) {
+        // if JSON includes questions, open quiz modal if present (candidate_dashboard.js provides openQuizModal)
+        if (window.openQuizModal) {
+          window.openQuizModal(Number(id), j.questions);
+        } else {
+          document.getElementById('interviewContent').style.display = 'block';
+          document.getElementById('interviewContent').innerHTML = '<pre>'+JSON.stringify(j, null, 2)+'</pre>';
+        }
+        return;
+      }
+      // fallback: reload to pick up server state
+      location.reload();
+    } catch (e) {
+      console.error('startAttempt error', e);
+      alert('Network error starting interview');
+      btn.disabled = false; btn.textContent = 'Start Interview';
+    }
+  }
+
+  document.getElementById('startBtn').addEventListener('click', startAttempt);
+  document.getElementById('resumeBtn').addEventListener('click', ()=> {
+    // try to resume: your backend may provide attempt id on fetchInterview result; simplest: reload
+    location.reload();
+  });
+
+  await fetchInterview();
+})();
+</script>
+</body>
+</html>

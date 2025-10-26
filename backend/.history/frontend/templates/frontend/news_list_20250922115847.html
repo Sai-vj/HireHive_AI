@@ -1,0 +1,16 @@
+{% extends "frontend/base.html" %}
+{% block title %}News - HireApp{% endblock %}
+{% block content %}
+<h2 class="mb-4">Latest News</h2>
+<div class="list-group">
+  {% for n in news %}
+    <a href="{% url 'frontend:news_detail' n.id %}" class="list-group-item list-group-item-action">
+      <h5 class="mb-1">{{ n.title }}</h5>
+      <small class="text-muted">{{ n.date|date:"M d, Y" }}</small>
+      <p class="mb-1">{{ n.summary }}</p>
+    </a>
+  {% empty %}
+    <div class="alert alert-info">No news available.</div>
+  {% endfor %}
+</div>
+{% endblock %}

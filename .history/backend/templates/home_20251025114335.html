@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Home · HireHive{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/home.css' %}">
+<style>
+  /* small in-template tweaks to match base theme */
+  .hero {
+    background: linear-gradient(135deg, rgba(79,70,229,0.06), rgba(236,72,153,0.03));
+    border-radius: 12px;
+  }
+  .mock-card { background: white; border-radius: 12px; }
+  .feature-card { border-radius: 12px; box-shadow: 0 8px 30px rgba(15,23,42,0.06); }
+  .stat-pill { background: white; border-radius: 999px; padding: 8px 12px; box-shadow: 0 6px 18px rgba(16,24,40,0.05); }
+  .cta-gradient { background: linear-gradient(90deg,var(--brand-1),var(--brand-2)); border-radius: 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- HERO -->
+<section class="hero py-5">
+  <div class="container">
+    <div class="row align-items-center gy-4">
+      <div class="col-lg-6">
+        <h1 class="display-5 fw-bold">Build your career — <span class="text-primary">smarter with AI</span></h1>
+        <p class="lead text-muted mt-3">Resume suggestions, role-based dashboards, interview practice, and job tracking — all in one place.</p>
+
+        <div class="mt-4 d-flex flex-wrap gap-2">
+          <a class="btn btn-primary btn-lg" href="{% url 'register' %}">Get Started</a>
+          <a class="btn btn-outline-secondary btn-lg" href="{% url 'login' %}">Login</a>
+        </div>
+
+        <div class="mt-4 d-flex gap-3 flex-wrap align-items-center text-muted small">
+          <div class="stat-pill d-flex align-items-center gap-2">
+            <span>👥</span>
+            <div>
+              <div class="fw-semibold">Trusted</div>
+              <div class="small text-muted">100+ companies</div>
+            </div>
+          </div>
+
+          <div class="stat-pill d-flex align-items-center gap-2">
+            <span>⚡</span>
+            <div>
+              <div class="fw-semibold">Faster hiring</div>
+              <div class="small text-muted">Avg. time-to-hire ↓ 30%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 small text-muted">
+          Already have an account? <a href="{% url 'login' %}">Login</a>
+        </div>
+      </div>
+
+      <div class="col-lg-6 text-center d-none d-lg-block">
+        <div class="mock-card p-4 shadow-sm">
+          <!-- replace src with real hero image when available -->
+          <img src="data:image/png;base64,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" alt="Image" 
+          class="img-fluid rounded shadow-lg" 
+          style="max-height:360px; object-fit:cover; width:100%;">
+       </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="py-5">
+  <div class="container">
+    <div class="text-center mb-4">
+      <h6 class="text-uppercase text-primary fw-bold">Features</h6>
+      <h2 class="fw-bold">All you need to land the right job</h2>
+      <p class="text-muted small">From resume scoring to mock interviews — everything designed to make hiring simpler.</p>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="p-4 feature-card h-100 bg-white">
+          <div class="fs-2">🤖</div>
+          <h5 class="mt-3">AI Resume Review</h5>
+          <p class="text-muted small">Auto suggestions to polish your resume and keyword-match for jobs.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="p-4 feature-card h-100 bg-white">
+          <div class="fs-2">💡</div>
+          <h5 class="mt-3">Interview Practice</h5>
+          <p class="text-muted small">Mock interviews & coding questions tailored to your role.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="p-4 feature-card h-100 bg-white">
+          <div class="fs-2">📣</div>
+          <h5 class="mt-3">Jobs & Notifications</h5>
+          <p class="text-muted small">Track applied jobs, recruiter messages, and news updates.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LATEST NEWS -->
+<section class="py-5 bg-light">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0">Latest News</h4>
+      <a href="{% url 'news_list' %}" class="small">View all</a>
+    </div>
+
+    <div class="row g-3">
+      {% for news in latest_news %}
+        <div class="col-md-4">
+          <article class="card h-100">
+            <div class="card-body d-flex flex-column">
+              <h6 class="card-title">{{ news.title|truncatechars:70 }}</h6>
+              <p class="small text-muted mb-2">{{ news.published_at|date:"d M Y" }}</p>
+              <p class="card-text small text-muted mb-3">{{ news.summary|truncatechars:110 }}</p>
+              <div class="mt-auto">
+                <a href="{% url 'news_detail' news.pk %}" class="stretched-link small">Read</a>
+              </div>
+            </div>
+          </article>
+        </div>
+      {% empty %}
+        <div class="col-12">
+          <p class="text-muted">No news yet.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="py-5">
+  <div class="container">
+    <div class="cta-gradient text-white p-4 p-md-5 d-flex flex-column flex-md-row align-items-center justify-content-between gap-3">
+      <div>
+        <h4 class="fw-bold mb-1">Ready to build your dream career?</h4>
+        <p class="mb-0 small">Start with a free account — tailor your resume and practice interviews.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'register' %}" class="btn btn-light btn-lg">Create account</a>
+        <a href="{% url 'contact' %}" class="btn btn-outline-light btn-lg">Contact us</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

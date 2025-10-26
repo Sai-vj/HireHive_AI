@@ -1,0 +1,265 @@
+<!-- interviews/templates/candidate_interview.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Candidate Interview</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    #timer { font-size: 1.2rem; font-weight: bold; color: darkred; }
+    .question-card { margin-bottom: 15px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+  </style>
+</head>
+<body class="p-4">
+<div class="container">
+  <h3 id="iv-title">Interview</h3>
+  <div id="iv-info" class="mb-3">
+    <div><strong>Scheduled:</strong> <span id="iv-scheduled">—</span></div>
+    <div><strong>Duration:</strong> <span id="iv-duration">—</span> mins</div>
+    <div id="timer" class="mt-2"></div>
+  </div>
+
+  <div id="iv-desc" class="mb-3"></div>
+
+  <div id="controls">
+    <button id="startAttemptBtn" class="btn btn-primary">Start Attempt</button>
+    <a id="backToDash" class="btn btn-outline-secondary" href="/api/resumes/dashboard/candidate/">Back</a>
+  </div>
+
+  <form id="questionsForm" class="mt-3" style="display:none;">
+    <div id="questionsContainer"></div>
+    <button type="submit" class="btn btn-success">Submit Answers</button>
+  </form>
+
+  <div id="message" class="mt-3"></div>
+</div>
+
+<script>
+/* ---------- Candidate interview page JS
+   - Fetch interview detail on load
+   - Show scheduled / duration / description
+   - Disable start btn until scheduled window
+   - Use invite query param if present
+   - Start attempt only when inside window (frontend check) + server will enforce
+*/
+
+/* helpers */
+const interviewId = "{{ interview_id }}";
+let attemptId = null;
+let timerInterval = null;
+let autosaveIntervalId = null;
+const AUTOSAVE_PERIOD_MS = 10000;
+function getCookie(name) {
+  const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return v ? v.pop() : '';
+}
+function el(id){ return document.getElementById(id); }
+function warnUser(msg){ const m = el('message'); if (!m) return; m.innerHTML = `<div class="alert alert-warning">${msg}</div>`; }
+function info(msg){ const m = el('message'); if (!m) return; m.innerHTML = `<div class="alert alert-info">${msg}</div>`; }
+
+/* --- schedule handling --- */
+let scheduledStart = null, scheduledEnd = null, interviewDuration = null;
+
+function parseISO(s){
+  try { return s ? new Date(s) : null; } catch(e){ return null; }
+}
+
+function updateScheduleUI(interviewData){
+  // try many common field names for scheduled time/duration/description
+  const sched = interviewData.scheduled_at || interviewData.start_time || interviewData.starts_at || interviewData.scheduled_start;
+  const end = interviewData.end_time || interviewData.scheduled_end || interviewData.ends_at;
+  scheduledStart = parseISO(sched);
+  scheduledEnd = parseISO(end);
+  // duration check
+  interviewDuration = interviewData.duration_minutes || interviewData.duration || null;
+
+  // ui fill
+  el('iv-scheduled').textContent = scheduledStart ? scheduledStart.toLocaleString() : '—';
+  el('iv-duration').textContent = interviewDuration ?? '—';
+  el('iv-desc').textContent = interviewData.description || interviewData.detail || interviewData.notes || '';
+
+  // if no explicit end, compute using duration
+  if (!scheduledEnd && scheduledStart && interviewDuration) {
+    try { scheduledEnd = new Date(scheduledStart.getTime() + parseInt(interviewDuration,10) * 60*1000); }
+    catch(e){ scheduledEnd = null; }
+  }
+
+  // start interval to enable/disable start button
+  updateStartState(); // initial
+  if (!window._startStateInterval) window._startStateInterval = setInterval(updateStartState, 1000);
+}
+
+function updateStartState(){
+  const now = new Date();
+  const startBtn = el('startAttemptBtn');
+  const timerEl = el('timer');
+  // if scheduledStart exists -> show countdown to start if in future
+  if (scheduledStart && now < scheduledStart) {
+    if (startBtn) startBtn.disabled = true;
+    const diff = Math.max(0, Math.floor((scheduledStart - now) / 1000));
+    const m = Math.floor(diff/60), s = diff%60;
+    if (timerEl) timerEl.textContent = `Starts in ${m}m ${s}s`;
+    return;
+  }
+  // if scheduledEnd exists and already past -> close
+  if (scheduledEnd && now > scheduledEnd) {
+    if (startBtn) startBtn.disabled = true;
+    if (timerEl) timerEl.textContent = `This interview window is closed.`;
+    return;
+  }
+  // else inside window -> enable
+  if (startBtn) startBtn.disabled = false;
+  if (timerEl && interviewDuration) {
+    // don't show time-left here until attempt started; show duration
+    timerEl.textContent = `Duration: ${interviewDuration ?? '—'} mins`;
+  }
+}
+
+/* ---------- fetch interview details on load ---------- */
+async function loadInterviewDetail() {
+  try {
+    const accessToken = localStorage.getItem('access_token');
+    const headers = accessToken ? { 'Authorization': 'Bearer ' + accessToken } : {};
+    const resp = await fetch(`/api/interviews/${interviewId}/`, { method: 'GET', headers });
+    if (!resp.ok) {
+      // show whatever message
+      const err = await resp.json().catch(()=>null);
+      el('iv-scheduled').textContent = '—';
+      el('iv-duration').textContent = '—';
+      el('iv-desc').textContent = '';
+      warnUser(`Failed to load interview detail${err?.detail ? ': '+err.detail : ''}`);
+      return;
+    }
+    const data = await resp.json().catch(()=>({}));
+    updateScheduleUI(data);
+  } catch (e) {
+    console.error('loadInterviewDetail', e);
+    warnUser('Network error loading interview info.');
+  }
+}
+
+/* ---------- START ATTEMPT (checks window client-side + calls API) ---------- */
+async function startAttemptHandler(){
+  const startBtn = el('startAttemptBtn');
+  if (startBtn) startBtn.disabled = true;
+  const inviteId = new URLSearchParams(window.location.search).get('invite') || null;
+
+  // client-side check: ensure inside window (but server does final check)
+  const now = new Date();
+  if (scheduledStart && now < scheduledStart) {
+    warnUser('Cannot start before scheduled time.');
+    if (startBtn) startBtn.disabled = false;
+    return;
+  }
+  if (scheduledEnd && now > scheduledEnd) {
+    warnUser('Interview window closed.');
+    if (startBtn) startBtn.disabled = true;
+    return;
+  }
+
+  try {
+    const accessToken = localStorage.getItem('access_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+    else headers['X-CSRFToken'] = getCookie('csrftoken') || '';
+
+    const resp = await fetch(`/api/interviews/candidate/${interviewId}/start/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ invite: inviteId })
+    });
+
+    const data = await resp.json().catch(()=>({}));
+
+    if (!resp.ok) {
+      // If server blocks due to schedule, show server message
+      const msg = data.detail || data.error || `Status ${resp.status}`;
+      warnUser(`Cannot start attempt: ${msg}`);
+      if (startBtn) startBtn.disabled = false;
+      return;
+    }
+
+    // success: use response to render questions and start timer
+    attemptId = data.attempt_id || data.id || null;
+    const questions = data.questions || [];
+    const durationFromServer = data.duration_minutes || data.duration || interviewDuration || 30;
+
+    // hide start and show questions
+    if (startBtn) startBtn.style.display = 'none';
+    loadQuestions(questions);
+    // start timer with duration from server (ensures server-driven)
+    startTimer(durationFromServer);
+
+    // start autosave and event logs if attemptId present
+    if (attemptId) {
+      startAutoSave();
+      try {
+        const bc = new BroadcastChannel(`attempt_${attemptId}_channel`);
+        bc.onmessage = (ev) => {
+          if (ev.data === 'hello') { logEvent('other_tab_open', {}); warnUser('Another tab detected for this attempt.'); }
+        };
+        bc.postMessage('hello');
+      } catch(e){}
+    } else {
+      console.warn('No attempt id returned; autosave/events disabled.');
+    }
+
+    info('Attempt started.');
+  } catch (e) {
+    console.error('startAttemptHandler error', e);
+    warnUser('Failed to start attempt (network).');
+    document.getElementById('startAttemptBtn').disabled = false;
+  }
+}
+
+/* ---------- rest of helper functions reused from your code (timer, loadQuestions, autosave etc) ---------- */
+/* Re-using loadQuestions, collectAnswers, autosaveAttempt, startAutoSave, logEvent, sendEventLogs, submitAnswers from earlier file.
+   Ensure these functions exist in the page (they are present below or above). */
+
+async function submitAnswers() {
+  if (!attemptId) { warnUser('No attempt id — cannot submit.'); return; }
+  const answers = collectAnswers();
+  const accessToken = localStorage.getItem('access_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+  else headers['X-CSRFToken'] = getCookie('csrftoken') || '';
+
+  try {
+    const res = await fetch(`/api/interviews/candidate/attempts/${attemptId}/submit/`, {
+      method: "POST", headers, body: JSON.stringify({ answers })
+    });
+    if (res.ok) {
+      const data = await res.json().catch(()=>({}));
+      el('message').innerHTML = `<div class="alert alert-success">Submitted! Score: ${data.score ?? 'N/A'} | Passed: ${data.passed ?? 'N/A'}</div>`;
+      el('questionsForm').style.display = "none";
+      clearInterval(timerInterval);
+      if (autosaveIntervalId) clearInterval(autosaveIntervalId);
+    } else {
+      const err = await res.json().catch(()=>({}));
+      el('message').innerHTML = `<div class="alert alert-danger">Submit failed: ${err.detail || JSON.stringify(err)}</div>`;
+    }
+  } catch (e) {
+    console.error('submit error', e);
+    el('message').innerHTML = `<div class="alert alert-danger">Submit failed (network).</div>`;
+  }
+}
+
+/* ---------- attach handlers ---------- */
+el('startAttemptBtn')?.addEventListener('click', startAttemptHandler);
+el('questionsForm')?.addEventListener('submit', function(e){ e.preventDefault(); submitAnswers(); });
+
+/* ---------- page init ---------- */
+loadInterviewDetail();
+
+/* ---------- NOTE ----------
+ - Backend endpoints used:
+    GET  /api/interviews/<interviewId>/         -> interview detail (used to get scheduled_at, duration, description)
+    POST /api/interviews/candidate/<interviewId>/start/ -> starts attempt (server enforces schedule)
+ - Make sure your InterviewSerializer includes scheduled_at/start_time and duration_minutes fields.
+ - Server already enforces scheduled window; frontend only improves UX and prevents accidental early starts.
+--------------------------------- */
+</script>
+
+
+</body>
+</html>

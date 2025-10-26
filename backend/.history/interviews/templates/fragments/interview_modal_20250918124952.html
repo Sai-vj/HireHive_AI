@@ -1,0 +1,12 @@
+<!-- templates/interviews/fragments/invite_modal.html -->
+<div class="modal">
+  <form hx-post="{% url 'recruiter_invite_candidate' pk %}" hx-swap="outerHTML" class="p-4" >
+    <label>Candidate ID</label>
+    <input name="candidate_id" class="border p-2" />
+    <label>Scheduled at (ISO)</label>
+    <input name="scheduled_at" type="datetime-local" />
+    <label>Message</label>
+    <textarea name="message"></textarea>
+    <button type="submit" class="bg-blue-600 text-white px-3 py-1">Send Invite</button>
+  </form>
+</div>

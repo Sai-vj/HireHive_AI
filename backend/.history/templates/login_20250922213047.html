@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Login · HireHive{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/auth.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrap py-5">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm rounded-lg auth-card p-4">
+          <h3 class="mb-3 text-center">Welcome back</h3>
+          <p class="text-muted small text-center mb-4">Login to access your dashboard</p>
+
+          <!-- IMPORTANT: action="" so JS handles the submit and prevents navigation -->
+          <form method="post" id="loginForm" novalidate action="" role="form" autocomplete="on">
+
+            {% csrf_token %}
+            <!-- redirect support -->
+            <input type="hidden" name="next" value="{{ request.GET.next|default_if_none:'' }}">
+
+            <!-- message container (used by login.js) -->
+            <div id="msg" aria-live="polite" class="mb-3"></div>
+
+            <div class="mb-3">
+              <label for="username" class="form-label small">Email or Username</label>
+              <input id="username" type="text" name="username" class="form-control form-control-lg" required
+                     autocomplete="username" inputmode="email" aria-label="Email or username">
+            </div>
+
+            <div class="mb-3">
+              <label for="password" class="form-label small">Password</label>
+              <div class="input-group">
+                <input id="password" type="password" name="password" class="form-control form-control-lg" required
+                       autocomplete="current-password" aria-label="Password">
+                <button class="btn btn-outline-secondary" type="button" id="togglePwd" aria-pressed="false" aria-label="Show password">Show</button>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="form-check">
+                <input class="form-check-input" name="remember" type="checkbox" id="remember" autocomplete="off">
+                <label class="form-check-label small" for="remember">Remember me</label>
+              </div>
+              <a href="{% url 'password_reset' %}" class="small">Forgot?</a>
+            </div>
+
+            <!-- Keep type="submit" so form behavior is standard, but JS prevents default -->
+            <button id="loginBtn" type="submit" class="btn btn-primary btn-lg w-100">Login</button>
+          </form>
+
+          <div class="text-center mt-3 small text-muted">
+            No account? <a href="{% url 'register' %}">Create one</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-5 d-none d-md-block">
+        <div class="auth-side p-4">
+          <h5>Why HireHive?</h5>
+          <ul class="small text-muted">
+            <li>AI Resume review</li>
+            <li>Interview practice</li>
+            <li>Role-based dashboards</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- cookie-based login script (must implement form submit handler) -->
+<script  type="" src="{% static 'login.js' %}" defer></script>
+
+<!-- small inline script for toggle password (deferred) -->
+<script defer>
+  document.addEventListener('DOMContentLoaded', () => {
+    const toggle = document.getElementById('togglePwd');
+    const pwd = document.getElementById('password');
+    if (!toggle || !pwd) return;
+    toggle.addEventListener('click', () => {
+      const isPwd = pwd.type === 'password';
+      pwd.type = isPwd ? 'text' : 'password';
+      toggle.innerText = isPwd ? 'Hide' : 'Show';
+      toggle.setAttribute('aria-pressed', String(!isPwd));
+    });
+  });
+</script>
+{% endblock %}

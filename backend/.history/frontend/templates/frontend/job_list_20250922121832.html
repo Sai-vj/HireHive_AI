@@ -1,0 +1,26 @@
+{% extends "frontend/base.html" %}
+{% block content %}
+<h3>Jobs</h3>
+<div id="jobsList">Loading...</div>
+
+<script>
+(async ()=>{
+  const w = document.getElementById('jobsList');
+  try {
+    const r = await fetch('/api/resumes/jobs/');
+    if(!r.ok) { w.innerHTML = '<div class="text-muted">Failed to load jobs</div>'; return; }
+    const data = await r.json().catch(()=>({}));
+    const jobs = Array.isArray(data) ? data : (data.results||[]);
+    if(!jobs.length){ w.innerHTML = '<div class="text-muted">No jobs</div>'; return; }
+    w.innerHTML = '';
+    jobs.forEach(j=>{
+      const a = document.createElement('a');
+      a.className='list-group-item list-group-item-action';
+      a.href = `/jobs/${j.id || j.pk}/`;
+      a.innerHTML = `<strong>${j.title || 'Job'}</strong><div class="small text-muted">${j.company||''}</div>`;
+      w.appendChild(a);
+    });
+  } catch(e){ w.innerHTML = '<div class="text-danger">Error loading jobs</div>'; console.error(e); }
+})();
+</script>
+{% endblock %}
