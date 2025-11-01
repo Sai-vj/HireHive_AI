@@ -742,8 +742,8 @@ def recruiter_review_attempts(request, job_pk=None):
             "finished_at": at.finished_at.isoformat() if at.finished_at else None,
             "answers": at.answers,
         })
-
-    return Response({"ok": True, "job_id": job.id, "attempts": data})
+    return render(request, "templates/recruiter_review.html")
+    #return Response({"ok": True, "job_id": job.id, "attempts": data})
 
 
 

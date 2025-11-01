@@ -7,18 +7,26 @@
 
 <link rel="stylesheet" href="{% static 'candidate_dashboard.css' %}">
 <style>
-  
+  /* minor overrides to align with base theme */
+  .sidebar { width:320px; max-width:36vw; }
+  .main { flex:1; min-width:0; }
+  .job-card { cursor:pointer; padding:12px; border-radius:8px; border:1px solid #ececec; margin-bottom:8px; background:#fff; }
+  .small-muted { color:#666; font-size:.95rem; }
+  .resume-card { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  #toastContainer{ position:fixed; right:18px; top:18px; z-index:12000; width:320px; }
+  .take-quiz-btn { border-radius:8px; padding:.45rem .7rem; min-width:110px; display:inline-flex; align-items:center; gap:8px; border:1px solid #2b7be4; color:#2b7be4; background:transparent; }
+  .take-quiz-btn.active { background: linear-gradient(180deg,#2b7be4,#1c5fc7); color:#fff; box-shadow:0 6px 18px rgba(43,123,228,0.12); }
+  .take-quiz-timer { display:inline-block; font-size:.82rem; padding:3px 8px; border-radius:999px; background:#fff; border:1px solid #e6e6e6; color:#222; min-width:44px; text-align:center; }
+  @media (max-width:800px) {
+    .sidebar { width:100%; order:2; }
+    .main { order:1; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<button class="btn btn-outline-primary btn-toggle-sidebar d-lg-none">
-  <i class="bi bi-list"></i> Menu
-</button>
-
-<h1 style="background-color: rgb(135, 233, 236);">{{user}}'S Dasboard</h1>
-<hr>
-
+<button class="btn btn-outline-primary btn-toggle-sidebar"><i class="bi bi-list"></i> Menu</button>
+<div class="sidebar-backdrop" id="sbBackdrop"></div>
 
 
 <div class="container py-3">
@@ -32,8 +40,8 @@
       <div style="width:160px"> 
         <button id="viewInvitesBtn" class="btn btn-primary w-100">View Invites</button> 
       </div>
-    </div>
-    <hr>
+
+      </div>
 
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h5 class="mb-0">Jobs</h5>
@@ -67,8 +75,6 @@
         <div id="myApplicationsList" style="max-height:22vh; overflow:auto; margin-top:8px;"></div>
       </div>
     </aside>
-    <hr>
-    <hr/>
 
     <!-- RIGHT main -->
     <main class="main">
@@ -211,23 +217,17 @@
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const sb  = document.querySelector('.sidebar');          // <— was getElementById
-  const bd  = document.getElementById('sbBackdrop');
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sbBackdrop');
   const btn = document.querySelector('.btn-toggle-sidebar');
 
-  if (!sb || !bd || !btn) return;
+  const openSB = () => { sb?.classList.add('is-open'); bd?.classList.add('show'); };
+  const closeSB = () => { sb?.classList.remove('is-open'); bd?.classList.remove('show'); };
 
-  const openSB  = () => { sb.classList.add('is-open'); bd.classList.add('show'); document.body.style.overflow='hidden'; };
-  const closeSB = () => { sb.classList.remove('is-open'); bd.classList.remove('show'); document.body.style.overflow=''; };
-
-  btn.addEventListener('click', openSB);
-  bd.addEventListener('click', closeSB);
+  btn?.addEventListener('click', openSB);
+  bd?.addEventListener('click', closeSB);
   document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeSB(); });
-
-  const mq = window.matchMedia('(min-width: 992px)');
-  mq.addEventListener('change', e => { if (e.matches) closeSB(); });
 });
 </script>
-
 
 {% endblock %}

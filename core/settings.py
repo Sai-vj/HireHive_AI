@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     # Third-party
     "rest_framework",
     "widget_tweaks",
+    "corsheaders",
 
     # Your apps
     "quiz", "news", "interviews", "resumes", "accounts",
@@ -64,7 +65,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
-
+MIDDLEWARE.insert(1, "corsheaders.middleware.CorsMiddleware")
 ROOT_URLCONF = "core.urls"
 
 TEMPLATES = [
@@ -298,3 +299,8 @@ if not DEBUG:
     if missing:
         import logging
         logging.getLogger("django").warning("Missing important env vars for production: %s", missing)
+        
+CSRF_TRUSTED_ORIGINS = ["http://127.0.0.1:8000", "http://localhost:8000"]
+CORS_ALLOWED_ORIGINS = ["http://127.0.0.1:8000", "http://localhost:8000"]
+CORS_ALLOW_CREDENTIALS = True
+
